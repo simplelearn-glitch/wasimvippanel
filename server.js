@@ -1,5 +1,4 @@
 const path = require('path');
-app.use(express.json());
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -7,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
 const app = express();
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.json());
 
 // ✅ MongoDB Atlas connection
 
