@@ -1,3 +1,5 @@
+const path = require('path');
+app.use(express.json());
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
