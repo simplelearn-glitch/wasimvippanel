@@ -9,8 +9,8 @@ app.use(cors());
 app.use(express.json());
 
 // ✅ MongoDB Atlas connection
-mongoose.connect("YOUR_MONGODB_ATLAS_URL");
 
+mongoose.connect(process.env.MONGO_URI)
 // ===== MODELS =====
 const User = mongoose.model('User', {
   username: String,
