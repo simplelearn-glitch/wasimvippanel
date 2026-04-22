@@ -3,58 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WASIMVIPPANEL</title>
+    <title>WASIMVIPPANEL - ADMIN</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0b0e14; font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
+        .btn-gradient { background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%); }
+    </style>
 </head>
-<body class="bg-[#0b0e14] text-gray-200 min-h-screen flex items-center justify-center p-4">
+<body class="text-gray-200 min-h-screen flex items-center justify-center p-4">
+
     <div class="w-full max-w-md">
-        <div class="bg-gradient-to-r from-indigo-700 to-purple-800 p-6 rounded-2xl shadow-2xl mb-6 border-b-4 border-indigo-500 text-center">
-            <h1 class="text-2xl font-black text-white tracking-widest uppercase">🚀 WASIMVIPPANEL</h1>
+        <div class="bg-gradient-to-r from-indigo-700 to-purple-800 p-6 rounded-2xl shadow-2xl mb-6 border-b-4 border-indigo-500">
+            <h1 class="text-2xl font-black text-white flex items-center gap-2 tracking-tighter uppercase">
+                🚀 WASIMVIPPANEL
+            </h1>
+            <p class="text-indigo-100 text-xs font-medium opacity-90 mt-1 uppercase tracking-widest">
+                Premium Key Management
+            </p>
         </div>
 
-        <div class="bg-gray-900/50 p-6 rounded-3xl border border-gray-800 shadow-xl">
+        <div class="glass p-6 rounded-3xl shadow-xl">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-sm font-bold text-indigo-400 tracking-widest">CREATE SUBSCRIPTION</h2>
+                <span class="bg-green-500/20 text-green-500 text-[10px] px-2 py-1 rounded-full font-bold">SERVER ONLINE</span>
+            </div>
+
             <div class="mb-4">
-                <label class="text-[10px] font-bold text-gray-500 uppercase">Game</label>
-                <select id="game" class="w-full bg-[#161b26] border border-gray-800 p-3 rounded-xl mt-1 outline-none text-sm">
-                    <option>PUBG Mobile</option><option>BGMI</option><option>Free Fire</option>
+                <label class="text-[10px] font-bold text-gray-500 uppercase ml-1">Select Target Game</label>
+                <select id="game" class="w-full bg-[#161b26] border border-gray-800 p-3 rounded-xl mt-1 outline-none focus:border-indigo-500 transition text-sm">
+                    <option value="PUBG Mobile">PUBG Mobile</option>
+                    <option value="BGMI">BGMI</option>
+                    <option value="Free Fire">Free Fire</option>
+                    <option value="Call of Duty">Call of Duty</option>
                 </select>
             </div>
 
             <div class="mb-6">
-                <label class="text-[10px] font-bold text-gray-500 uppercase">Duration</label>
-                <select id="duration" class="w-full bg-[#161b26] border border-gray-800 p-3 rounded-xl mt-1 outline-none text-sm">
-                    <option>2 Hours</option><option>5 Hours</option><option>6 Hours</option>
-                    <option>1 Day</option><option>7 Days</option><option>30 Days</option><option>60 Days</option>
+                <label class="text-[10px] font-bold text-gray-500 uppercase ml-1">Plan Duration</label>
+                <select id="duration" class="w-full bg-[#161b26] border border-gray-800 p-3 rounded-xl mt-1 outline-none focus:border-indigo-500 transition text-sm">
+                    <option value="2 Hours">2 Hours Plan</option>
+                    <option value="5 Hours">5 Hours Plan</option>
+                    <option value="6 Hours">6 Hours Plan</option>
+                    <option value="1 Day">1 Day Plan</option>
+                    <option value="7 Days">7 Days Plan</option>
+                    <option value="30 Days">30 Days Plan</option>
+                    <option value="60 Days">60 Days Plan</option>
                 </select>
             </div>
 
-            <button onclick="generateKey()" id="genBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-xl transition-all uppercase text-sm tracking-widest">
-                Generate Key
+            <button onclick="generateKey()" id="genBtn" class="w-full btn-gradient hover:opacity-90 text-white font-black py-4 rounded-xl shadow-lg transition-all active:scale-95 uppercase tracking-widest text-sm">
+                Generate VIP Key
             </button>
 
-            <div id="resultBox" class="mt-6 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/30 hidden text-center">
-                <p id="keyDisplay" class="font-mono font-bold text-indigo-400 text-lg">---</p>
-                <p id="expiryDisplay" class="text-[10px] text-gray-500 mt-2 font-medium"></p>
+            <div id="resultBox" class="mt-6 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/30 hidden animate-pulse">
+                <p class="text-[10px] text-gray-500 uppercase text-center mb-2 tracking-widest">Key Generated Successfully</p>
+                
+                <div class="flex items-center justify-between bg-[#0b0e14] p-3 rounded-lg border border-gray-800">
+                    <span id="keyDisplay" class="font-mono font-bold text-indigo-400">---</span>
+                    <button onclick="copyKey()" class="text-[10px] bg-indigo-600 px-2 py-1 rounded text-white hover:bg-indigo-500">COPY</button>
+                </div>
+
+                <div id="expiryDisplay" class="text-[10px] text-gray-500 text-center mt-3 font-medium">
+                    </div>
             </div>
         </div>
+
+        <p class="text-center text-gray-600 text-[10px] mt-8 uppercase tracking-widest">Powered by Wasim VIP Cloud</p>
     </div>
 
     <script>
         async function generateKey() {
+            const game = document.getElementById('game').value;
+            const plan = document.getElementById('duration').value;
             const btn = document.getElementById('genBtn');
-            btn.innerText = "WAIT...";
-            const res = await fetch('/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ game: document.getElementById('game').value, plan: document.getElementById('duration').value })
-            });
-            const data = await response = await res.json();
-            document.getElementById('keyDisplay').innerText = data.key;
-            document.getElementById('expiryDisplay').innerText = "EXPIRES: " + new Date(data.expiresAt).toLocaleString();
-            document.getElementById('resultBox').classList.remove('hidden');
-            btn.innerText = "Generate Key";
+            const resultBox = document.getElementById('resultBox');
+            
+            btn.innerText = "PROCESSING...";
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ game, plan, devices: 1 })
+                });
+
+                const data = await response.json();
+
+                if (data.key) {
+                    document.getElementById('keyDisplay').innerText = data.key;
+                    const expDate = new Date(data.expiresAt).toLocaleString();
+                    document.getElementById('expiryDisplay').innerHTML = `STATUS: <span class="text-green-500">ACTIVE</span> <br> EXPIRES: ${expDate}`;
+                    resultBox.classList.remove('hidden');
+                }
+            } catch (error) {
+                alert("Connection failed! Check Render backend.");
+            } finally {
+                btn.innerText = "Generate VIP Key";
+                btn.disabled = false;
+            }
+        }
+
+        function copyKey() {
+            const keyText = document.getElementById('keyDisplay').innerText;
+            navigator.clipboard.writeText(keyText);
+            alert("Key Copied: " + keyText);
         }
     </script>
 </body>
 </html>
-
