@@ -60,31 +60,12 @@ app.post('/api/generate', async (req, res) => {
 
 // 4. --- VERIFICATION (For your Mod/External) ---
 app.get('/api/verify', async (req, res) => {
-    // 4. --- SECURE VERIFICATION (POST) ---
-app.post('/api/verify', async (req, res) => {
-    try {
-        const { key } = req.body; // Key is now sent securely in the body
-        
-        if (!key) return res.status(400).json({ status: "ERROR", message: "No key provided" });
-
-        const foundKey = await Key.findOne({ key: key });
-
-        if (!foundKey) return res.status(404).json({ status: "INVALID" });
-        
-        const now = new Date();
-        if (now > foundKey.expiresAt) {
-            return res.status(410).json({ status: "EXPIRED" });
-        }
-
-        res.json({ 
-            status: "SUCCESS", 
-            expiresAt: foundKey.expiresAt 
-        });
-    } catch (err) {
-        res.status(500).json({ status: "ERROR" });
-    }
+    const foundKey = await Key.findOne({ key: req.query.key });
+    if (!foundKey) return res.json({ status: "INVALID" });
+    const now = new Date();
+    if (now > foundKey.expiresAt) return res.json({ status: "EXPIRED" });
+    res.json({ status: "SUCCESS", expiresAt: foundKey.expiresAt });
 });
-
 
 app.use(express.static('public'));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
