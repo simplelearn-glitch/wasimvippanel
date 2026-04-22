@@ -2,8 +2,6 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 require('dotenv').config();
 
@@ -11,79 +9,58 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// 1. Database Connection (FIXED TYPO)
+// MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log("✅ MongoDB Connected"))
-    .catch(err => console.error("❌ MongoDB Error:", err));
+    .catch(err => console.error("❌ Connection Error:", err));
 
-// 2. Models (FIXED TYPO)
-const User = mongoose.model('User', {
-    username: String,
-    password: String
-});
-
+// Key Schema
 const Key = mongoose.model('Key', {
     key: String,
     game: String,
     plan: String,
-    devices: Number,
     expiresAt: Date,
     createdAt: { type: Date, default: Date.now }
 });
 
-// 3. Auth Routes
-app.post('/register', async (req, res) => {
+// --- ADMIN ROUTES ---
+
+// Get all keys for the Dashboard
+app.get('/api/admin/keys', async (req, res) => {
     try {
-        const hash = await bcrypt.hash(req.body.password, 10);
-        const user = new User({ username: req.body.username, password: hash });
-        await user.save();
-        res.json({ message: "User registered" });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+        const keys = await Key.find().sort({ createdAt: -1 });
+        res.json(keys);
+    } catch (err) { res.status(500).send(err); }
 });
 
-app.post('/login', async (req, res) => {
-    const user = await User.findOne({ username: req.body.username });
-    if (!user) return res.status(400).json({ error: "User not found" });
-    const valid = await bcrypt.compare(req.body.password, user.password);
-    if (!valid) return res.status(400).json({ error: "Wrong password" });
-    const token = jwt.sign({ id: user._id }, "SECRET_KEY");
-    res.json({ token });
+// Delete (Block) a key
+app.delete('/api/admin/keys/:id', async (req, res) => {
+    try {
+        await Key.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (err) { res.status(500).send(err); }
 });
 
-// 4. Generate Key Route (UPDATED WITH ALL YOUR TIME OPTIONS)
-app.post('/generate', async (req, res) => {
-    const { plan, game, devices } = req.body;
-    const keyVal = "WASIM-" + crypto.randomBytes(4).toString('hex').toUpperCase();
+// Generate Key
+app.post('/api/generate', async (req, res) => {
+    const { plan, game } = req.body;
+    const keyVal = "WASIM-" + crypto.randomBytes(3).toString('hex').toUpperCase();
 
-    let durationHours = 2; 
-    if (plan === "5 Hours") durationHours = 5;
-    if (plan === "6 Hours") durationHours = 6;
-    if (plan === "1 Day") durationHours = 24;
-    if (plan === "7 Days") durationHours = 168;
-    if (plan === "30 Days") durationHours = 720;
-    if (plan === "60 Days") durationHours = 1440;
-    
+    let hours = 2;
+    const planMap = { "2 Hours": 2, "5 Hours": 5, "6 Hours": 6, "1 Day": 24, "7 Days": 168, "30 Days": 720, "60 Days": 1440 };
+    hours = planMap[plan] || 2;
+
     const expiryDate = new Date();
-    expiryDate.setHours(expiryDate.getHours() + durationHours);
+    expiryDate.setHours(expiryDate.getHours() + hours);
 
-    const newKey = new Key({
-        key: keyVal,
-        game: game || "PUBG Mobile",
-        plan: plan,
-        devices: devices || 1,
-        expiresAt: expiryDate
-    });
-
+    const newKey = new Key({ key: keyVal, game, plan, expiresAt: expiryDate });
     await newKey.save();
-    res.json({ key: keyVal, expiresAt: expiryDate });
+    res.json(newKey);
 });
 
-// 5. Serve Frontend
+// Serve Frontend
 app.use(express.static('public'));
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// 6. Start Server
-const PORT = process.env.PORT || 10000; 
-app.listen(PORT, () => console.log("🚀 Server running on port " + PORT));
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => console.log(`🚀 Server on port ${PORT}`));
