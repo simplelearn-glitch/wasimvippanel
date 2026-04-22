@@ -59,25 +59,31 @@ app.post('/api/generate', async (req, res) => {
 });
 
 // --- 4. FINAL UNIVERSAL FIX ---
-// This matches /api/ve, /api/ver, and /api/verify
 app.all('/api/ve*', async (req, res) => {
     try {
-        // This captures the key from either a POST body or a GET URL
         const key = req.query.key || req.body.key;
 
-        if (!key) return res.status(400).json({ status: "INVALID" });
+        if (!key) return res.status(400).json({ status: "INVALID", expiresAt: "N/A" });
 
         const foundKey = await Key.findOne({ key: key });
 
-        if (!foundKey) return res.json({ status: "INVALID" });
+        // FIX: Always send expiresAt so the app doesn't see "null" and crash
+        if (!foundKey) {
+            return res.json({ status: "INVALID", expiresAt: "N/A" });
+        }
         
         const now = new Date();
-        if (now > foundKey.expiresAt) return res.json({ status: "EXPIRED" });
+        if (now > foundKey.expiresAt) {
+            return res.json({ status: "EXPIRED", expiresAt: foundKey.expiresAt.toISOString() });
+        }
 
-        // This JSON tells your app "Login Successful"
-        res.json({ status: "SUCCESS" });
+        // SUCCESS: Send the real expiry date as a string
+        res.json({ 
+            status: "SUCCESS", 
+            expiresAt: foundKey.expiresAt.toISOString() 
+        });
     } catch (err) {
-        res.status(500).json({ status: "ERROR" });
+        res.status(500).json({ status: "ERROR", expiresAt: "N/A" });
     }
 });
 
