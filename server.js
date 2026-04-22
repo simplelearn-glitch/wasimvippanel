@@ -58,14 +58,38 @@ app.post('/api/generate', async (req, res) => {
     res.json(newKey);
 });
 
-// 4. --- VERIFICATION (For your Mod/External) ---
-app.get('/api/verify', async (req, res) => {
-    const foundKey = await Key.findOne({ key: req.query.key });
-    if (!foundKey) return res.json({ status: "INVALID" });
-    const now = new Date();
-    if (now > foundKey.expiresAt) return res.json({ status: "EXPIRED" });
-    res.json({ status: "SUCCESS", expiresAt: foundKey.expiresAt });
+// --- 4. SECURE VERIFICATION (POST) ---
+app.post('/api/verify', async (req, res) => {
+    try {
+        const { key } = req.body;
+        const foundKey = await Key.findOne({ key: key });
+
+        if (!foundKey) return res.status(404).json({ status: "INVALID" });
+        
+        const now = new Date();
+        if (now > foundKey.expiresAt) return res.status(410).json({ status: "EXPIRED" });
+
+        res.json({ status: "SUCCESS", expiresAt: foundKey.expiresAt });
+    } catch (err) {
+        res.status(500).json({ status: "ERROR" });
+    }
 });
+
+// --- 5. CONNECT STATUS PAGE ---
+app.get('/connect', (req, res) => {
+    res.send(`
+        <body style="background:#0b0f1a; display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif;">
+            <div style="text-align:center; padding:50px; background:#161b2c; border-radius:30px; border:1px solid #22c55e; color:white;">
+                <h1 style="margin:0; font-size:40px;">WASIM <span style="color:#22c55e;">VIP</span></h1>
+                <p style="color:#22c55e; font-weight:bold; letter-spacing:3px; margin-top:20px;">SERVER WORKING ✓</p>
+            </div>
+        </body>
+    `);
+});
+
+// Redirect main link to connect page
+app.get('/', (req, res) => res.redirect('/connect'));
+
 
 app.use(express.static('public'));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
