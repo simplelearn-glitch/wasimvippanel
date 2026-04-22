@@ -58,39 +58,29 @@ app.post('/api/generate', async (req, res) => {
     res.json(newKey);
 });
 
-// --- 4. FINAL UNIVERSAL FIX (NO MORE CRASH) ---
+// --- 4. FINAL UNIVERSAL FIX ---
+// This matches /api/ve, /api/ver, and /api/verify
 app.all('/api/ve*', async (req, res) => {
     try {
+        // This captures the key from either a POST body or a GET URL
         const key = req.query.key || req.body.key;
-        const fallbackDate = "2099-01-01T00:00:00.000Z"; // Fake date to prevent app crash
 
-        if (!key) {
-            return res.status(400).json({ status: "INVALID", expiresAt: fallbackDate });
-        }
+        if (!key) return res.status(400).json({ status: "INVALID" });
 
         const foundKey = await Key.findOne({ key: key });
 
-        if (!foundKey) {
-            // App crashes if this isn't a date, so we send the fallbackDate
-            return res.json({ status: "INVALID", expiresAt: fallbackDate });
-        }
+        if (!foundKey) return res.json({ status: "INVALID" });
         
         const now = new Date();
-        const formattedExpiry = foundKey.expiresAt.toISOString();
+        if (now > foundKey.expiresAt) return res.json({ status: "EXPIRED" });
 
-        if (now > foundKey.expiresAt) {
-            return res.json({ status: "EXPIRED", expiresAt: formattedExpiry });
-        }
-
-        // SUCCESS
-        res.json({ 
-            status: "SUCCESS", 
-            expiresAt: formattedExpiry 
-        });
+        // This JSON tells your app "Login Successful"
+        res.json({ status: "SUCCESS" });
     } catch (err) {
-        res.status(500).json({ status: "ERROR", expiresAt: "2099-01-01T00:00:00.000Z" });
+        res.status(500).json({ status: "ERROR" });
     }
 });
+
 
 
 
