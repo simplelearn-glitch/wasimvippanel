@@ -58,15 +58,14 @@ app.post('/api/generate', async (req, res) => {
     res.json(newKey);
 });
 
-// // --- 4. UNIVERSAL VERIFICATION (GET & POST) ---
-app.all('/api/verify', async (req, res) => {
+// --- 4. FINAL UNIVERSAL FIX ---
+// This matches /api/ve, /api/ver, and /api/verify
+app.all('/api/ve*', async (req, res) => {
     try {
-        // This line catches the key whether it's in the URL or in the Body
+        // This captures the key from either a POST body or a GET URL
         const key = req.query.key || req.body.key;
 
-        if (!key) {
-            return res.status(400).json({ status: "INVALID", message: "Key missing" });
-        }
+        if (!key) return res.status(400).json({ status: "INVALID" });
 
         const foundKey = await Key.findOne({ key: key });
 
@@ -75,13 +74,13 @@ app.all('/api/verify', async (req, res) => {
         const now = new Date();
         if (now > foundKey.expiresAt) return res.json({ status: "EXPIRED" });
 
-        // This is exactly what your library is looking for
+        // This JSON tells your app "Login Successful"
         res.json({ status: "SUCCESS" });
     } catch (err) {
-        console.error(err);
         res.status(500).json({ status: "ERROR" });
     }
 });
+
 
 
 app.use(express.static('public'));
