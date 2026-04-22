@@ -9,12 +9,12 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// MongoDB Connection
+// 1. Database Connection
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log("✅ MongoDB Connected"))
-    .catch(err => console.error("❌ Connection Error:", err));
+    .catch(err => console.error("❌ DB Error:", err));
 
-// Key Schema
+// 2. Schema
 const Key = mongoose.model('Key', {
     key: String,
     game: String,
@@ -23,32 +23,32 @@ const Key = mongoose.model('Key', {
     createdAt: { type: Date, default: Date.now }
 });
 
-// --- ADMIN ROUTES ---
+// 3. --- API ROUTES ---
 
-// Get all keys for the Dashboard
+// Get all keys for Admin Table
 app.get('/api/admin/keys', async (req, res) => {
-    try {
-        const keys = await Key.find().sort({ createdAt: -1 });
-        res.json(keys);
-    } catch (err) { res.status(500).send(err); }
+    const keys = await Key.find().sort({ createdAt: -1 });
+    res.json(keys);
 });
 
-// Delete (Block) a key
+// Delete/Block Key
 app.delete('/api/admin/keys/:id', async (req, res) => {
-    try {
-        await Key.findByIdAndDelete(req.params.id);
-        res.json({ success: true });
-    } catch (err) { res.status(500).send(err); }
+    await Key.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
 });
 
-// Generate Key
+// Generate or Save Manual Key
 app.post('/api/generate', async (req, res) => {
-    const { plan, game } = req.body;
-    const keyVal = "WASIM-" + crypto.randomBytes(3).toString('hex').toUpperCase();
+    const { plan, game, customKey } = req.body;
+    
+    // Use manual key if exists, else random
+    const keyVal = customKey || ("WASIM-" + crypto.randomBytes(3).toString('hex').toUpperCase());
 
-    let hours = 2;
-    const planMap = { "2 Hours": 2, "5 Hours": 5, "6 Hours": 6, "1 Day": 24, "7 Days": 168, "30 Days": 720, "60 Days": 1440 };
-    hours = planMap[plan] || 2;
+    const planMap = { 
+        "2 Hours": 2, "5 Hours": 5, "6 Hours": 6, 
+        "1 Day": 24, "7 Days": 168, "30 Days": 720, "60 Days": 1440 
+    };
+    const hours = planMap[plan] || 2;
 
     const expiryDate = new Date();
     expiryDate.setHours(expiryDate.getHours() + hours);
@@ -58,9 +58,17 @@ app.post('/api/generate', async (req, res) => {
     res.json(newKey);
 });
 
-// Serve Frontend
+// 4. --- VERIFICATION (For your Mod/External) ---
+app.get('/api/verify', async (req, res) => {
+    const foundKey = await Key.findOne({ key: req.query.key });
+    if (!foundKey) return res.json({ status: "INVALID" });
+    const now = new Date();
+    if (now > foundKey.expiresAt) return res.json({ status: "EXPIRED" });
+    res.json({ status: "SUCCESS", expiresAt: foundKey.expiresAt });
+});
+
 app.use(express.static('public'));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`🚀 Server on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 WASIM PANEL LIVE ON PORT ${PORT}`));
