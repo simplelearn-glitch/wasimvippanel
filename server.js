@@ -58,34 +58,40 @@ app.post('/api/generate', async (req, res) => {
     res.json(newKey);
 });
 
-// --- 4. FINAL UNIVERSAL FIX ---
+// --- 4. FINAL UNIVERSAL FIX (NO MORE CRASH) ---
 app.all('/api/ve*', async (req, res) => {
     try {
         const key = req.query.key || req.body.key;
+        const fallbackDate = "2099-01-01T00:00:00.000Z"; // Fake date to prevent app crash
 
-        if (!key) return res.status(400).json({ status: "INVALID", expiresAt: "N/A" });
+        if (!key) {
+            return res.status(400).json({ status: "INVALID", expiresAt: fallbackDate });
+        }
 
         const foundKey = await Key.findOne({ key: key });
 
-        // FIX: Always send expiresAt so the app doesn't see "null" and crash
         if (!foundKey) {
-            return res.json({ status: "INVALID", expiresAt: "N/A" });
+            // App crashes if this isn't a date, so we send the fallbackDate
+            return res.json({ status: "INVALID", expiresAt: fallbackDate });
         }
         
         const now = new Date();
+        const formattedExpiry = foundKey.expiresAt.toISOString();
+
         if (now > foundKey.expiresAt) {
-            return res.json({ status: "EXPIRED", expiresAt: foundKey.expiresAt.toISOString() });
+            return res.json({ status: "EXPIRED", expiresAt: formattedExpiry });
         }
 
-        // SUCCESS: Send the real expiry date as a string
+        // SUCCESS
         res.json({ 
             status: "SUCCESS", 
-            expiresAt: foundKey.expiresAt.toISOString() 
+            expiresAt: formattedExpiry 
         });
     } catch (err) {
-        res.status(500).json({ status: "ERROR", expiresAt: "N/A" });
+        res.status(500).json({ status: "ERROR", expiresAt: "2099-01-01T00:00:00.000Z" });
     }
 });
+
 
 
 
