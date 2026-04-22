@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WASIM VIP ADMIN</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0b0e14; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+    </style>
+</head>
+<body class="text-gray-200 min-h-screen p-4 flex flex-col items-center">
+
+    <div id="loginPage" class="fixed inset-0 bg-[#0b0e14] z-50 flex items-center justify-center p-4">
+        <div class="glass p-8 rounded-3xl w-full max-w-sm text-center">
+            <h2 class="text-2xl font-black mb-6 text-indigo-500 uppercase tracking-tighter">ADMIN LOGIN</h2>
+            <input type="password" id="passInput" placeholder="Enter Admin Password" class="w-full bg-[#161b26] border border-gray-800 p-4 rounded-xl mb-4 outline-none text-center">
+            <button onclick="checkPass()" class="w-full bg-indigo-600 p-4 rounded-xl font-bold uppercase hover:bg-indigo-500 transition">Enter Panel</button>
+        </div>
+    </div>
+
+    <div id="mainDashboard" class="w-full max-w-2xl hidden">
+        <div class="bg-gradient-to-r from-indigo-700 to-purple-800 p-6 rounded-2xl shadow-2xl mb-6 text-center">
+            <h1 class="text-2xl font-black text-white tracking-widest uppercase">🚀 WASIMVIPPANEL ADMIN</h1>
+        </div>
+
+        <div class="glass p-6 rounded-3xl mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label class="text-[10px] text-gray-500 font-bold uppercase">Game</label>
+                    <select id="game" class="w-full bg-[#161b26] border border-gray-800 p-3 rounded-xl outline-none text-sm mt-1">
+                        <option>PUBG Mobile</option><option>BGMI</option><option>Free Fire</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] text-gray-500 font-bold uppercase">Plan</label>
+                    <select id="duration" class="w-full bg-[#161b26] border border-gray-800 p-3 rounded-xl outline-none text-sm mt-1">
+                        <option>2 Hours</option><option>5 Hours</option><option>6 Hours</option>
+                        <option>1 Day</option><option>7 Days</option><option>30 Days</option>
+                    </select>
+                </div>
+            </div>
+            <button onclick="generateKey()" id="genBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-xl font-black uppercase tracking-widest transition">Generate Key</button>
+            
+            <div id="resultBox" class="mt-4 p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl hidden text-center">
+                <p id="keyDisplay" class="font-mono text-xl text-indigo-400 font-bold">---</p>
+            </div>
+        </div>
+
+        <div class="glass p-6 rounded-3xl">
+            <h2 class="text-sm font-bold text-indigo-400 mb-4 tracking-widest uppercase">Manage Active Keys</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-[11px]">
+                    <thead class="text-gray-500 uppercase border-b border-gray-800">
+                        <tr><th class="pb-2">Key</th><th class="pb-2">Game</th><th class="pb-2 text-right">Action</th></tr>
+                    </thead>
+                    <tbody id="keyTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Password Protection (Change "wasim786" to your password)
+        function checkPass() {
+            const pass = document.getElementById('passInput').value;
+            if (pass === "wasim786") {
+                document.getElementById('loginPage').classList.add('hidden');
+                document.getElementById('mainDashboard').classList.remove('hidden');
+                fetchKeys();
+            } else { alert("Incorrect Password!"); }
+        }
+
+        async function generateKey() {
+            const btn = document.getElementById('genBtn');
+            btn.innerText = "GENERATING...";
+            const res = await fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ game: document.getElementById('game').value, plan: document.getElementById('duration').value })
+            });
+            const data = await res.json();
+            document.getElementById('keyDisplay').innerText = data.key;
+            document.getElementById('resultBox').classList.remove('hidden');
+            btn.innerText = "Generate Key";
+            fetchKeys();
+        }
+
+        async function fetchKeys() {
+            const res = await fetch('/api/admin/keys');
+            const keys = await res.json();
+            const body = document.getElementById('keyTableBody');
+            body.innerHTML = '';
+            keys.forEach(k => {
+                body.innerHTML += `
+                    <tr class="border-b border-gray-900">
+                        <td class="py-4 font-mono text-indigo-300 font-bold">${k.key}</td>
+                        <td class="py-4 text-gray-400">${k.game}</td>
+                        <td class="py-4 text-right">
+                            <button onclick="blockKey('${k._id}')" class="bg-red-900/30 text-red-500 px-3 py-1 rounded-lg border border-red-500/20 font-bold hover:bg-red-500 hover:text-white transition">BLOCK</button>
+                        </td>
+                    </tr>`;
+            });
+        }
+
+        async function blockKey(id) {
+            if (confirm("Block/Delete this key?")) {
+                await fetch(`/api/admin/keys/${id}`, { method: 'DELETE' });
+                fetchKeys();
+            }
+        }
+    </script>
+</body>
+</html>
