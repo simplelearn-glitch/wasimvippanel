@@ -15,7 +15,7 @@ const Key = mongoose.model('Key', new mongoose.Schema({
     key: String, game: String, plan: String, expiresAt: Date, createdAt: { type: Date, default: Date.now }
 }));
 
-// --- ADMIN API ---
+// --- ADMIN API (Dashboard ke liye JSON zaruri hai) ---
 app.get('/api/admin/keys', async (req, res) => { res.json(await Key.find().sort({ createdAt: -1 })); });
 app.delete('/api/admin/keys/:id', async (req, res) => { await Key.findByIdAndDelete(req.params.id); res.json({ success: true }); });
 app.post('/api/generate', async (req, res) => {
@@ -27,70 +27,34 @@ app.post('/api/generate', async (req, res) => {
     await newKey.save(); res.json(newKey);
 });
 
-// --- 4. MEGA LOADER VERIFY (SAB FIELDS ADD KAR DI HAIN) ---
+// --- 4. THE LOADER FIX (NO JSON, ONLY PLAIN TEXT) ---
 app.all('/api/ve*', async (req, res) => {
     try {
         const key = req.query.key || req.body.key || "";
-        const expStr = "2026-12-31"; // Default expiry string
-
-        // Ye hai woh "Power" wala response jo har field ko fill karega
-        let megaResponse = {
-            "status": "INVALID",
-            "auth": "false",
-            "message": "Invalid Key",
-            "expiry": "0000-00-00",
-            "user": "Guest",
-            "user_user": "Guest",
-            "token": "none",
-            "game": "GameZone",
-            "game_name": "GameZone",
-            "plan": "None",
-            "credits": "0",
-            "rank": "Member",
-            "level": "1",
-            "mod_status": "none",
-            "device_id": "none"
-        };
-
-        if (!key) {
-            megaResponse.message = "Enter Your Key";
-            return res.status(200).json(megaResponse);
-        }
+        
+        // Agar key nahi hai
+        if (!key) return res.send("INVALID|Enter Key|0000-00-00|none|none");
 
         const foundKey = await Key.findOne({ key: key });
-        if (!foundKey) return res.status(200).json(megaResponse);
+
+        // Agar key galat hai
+        if (!foundKey) return res.send("INVALID|Invalid Key|0000-00-00|none|none");
 
         const now = new Date();
-        const currentExp = foundKey.expiresAt ? foundKey.expiresAt.toISOString().split('T')[0] : expStr;
+        const expStr = foundKey.expiresAt ? foundKey.expiresAt.toISOString().split('T')[0] : "2026-12-31";
 
+        // Agar key expire ho gayi hai
         if (foundKey.expiresAt && now > foundKey.expiresAt) {
-            megaResponse.status = "EXPIRED";
-            megaResponse.message = "Key Expired";
-            megaResponse.expiry = currentExp;
-            return res.status(200).json(megaResponse);
+            return res.send(`EXPIRED|Key Expired|${expStr}|none|none`);
         }
 
-        // SUCCESS RESPONSE
-        res.status(200).json({ 
-            "status": "SUCCESS", 
-            "auth": "true",
-            "message": "Login Successful",
-            "expiry": currentExp,
-            "user": "PremiumUser",
-            "user_user": "PremiumUser",
-            "token": crypto.randomBytes(16).toString('hex'),
-            "game": foundKey.game || "GameZone",
-            "game_name": foundKey.game || "GameZone",
-            "plan": foundKey.plan || "VIP",
-            "credits": "9999",
-            "rank": "Admin",
-            "level": "100",
-            "mod_status": "Active",
-            "device_id": "verified"
-        });
+        // AGAR SAB SAHI HAI (SUCCESS)
+        // Format: STATUS|MESSAGE|EXPIRY|TOKEN|USER
+        const token = crypto.randomBytes(8).toString('hex');
+        res.send(`SUCCESS|Login Success|${expStr}|${token}|PremiumUser`);
 
     } catch (err) {
-        res.status(200).json({ "status": "ERROR", "auth": "false", "expiry": "0000-00-00" });
+        res.send("ERROR|Server Error|0000-00-00|none|none");
     }
 });
 
