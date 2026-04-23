@@ -16,7 +16,7 @@ mongoose.connect(process.env.MONGO_URI)
 
 // --- KEY SCHEMA ---
 const KeySchema = new mongoose.Schema({
-    key: { type: String, required: true, unique: true }, // Store as lowercase
+    key: { type: String, required: true, unique: true },
     game: { type: String, default: "GameZone" },
     plan: { type: String, default: "2 Hours" },
     hwid: { type: String, default: null },
@@ -30,23 +30,31 @@ app.get('/api/status', (req, res) => {
     res.status(200).json({ status: "ONLINE", server: "Active", time: new Date() });
 });
 
-// --- 2. LOADER VERIFY API (PERMANENT CASE FIX) ---
+// --- 2. ADMIN LOGIN (PASSWORD FIX) ---
+app.post('/api/admin/login', (req, res) => {
+    const { password } = req.body;
+    if (password === "wasim786") {
+        res.status(200).json({ success: true, message: "Access Granted" });
+    } else {
+        res.status(401).json({ success: false, message: "Access Denied!" });
+    }
+});
+
+// --- 3. LOADER VERIFY API (PERMANENT CASE & TRIM FIX) ---
 app.all(['/api/ve*', '/api/verify', '/verify'], async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
 
-    // FIX: Get key and force to lowercase immediately. Also trim spaces.
     let rawKey = req.body.key || req.query.key || "";
     let rawHwid = req.body.hwid || req.query.hwid || "";
 
     const key = rawKey.toString().toLowerCase().trim();
     const hwid = rawHwid.toString().trim();
 
-    if (!key || key === "") {
+    if (!key) {
         return res.status(200).json({ status: "FAILED", message: "Key is missing!" });
     }
 
     try {
-        // Now searching with lowercase key
         const foundKey = await Key.findOne({ key: key });
 
         if (!foundKey) {
@@ -89,12 +97,19 @@ app.all(['/api/ve*', '/api/verify', '/verify'], async (req, res) => {
     }
 });
 
-// --- 3. ADMIN API (FORCED LOWERCASE GENERATION) ---
+// --- 4. ADMIN API (KEYS & GENERATION) ---
+app.get('/api/admin/keys', async (req, res) => {
+    try {
+        const keys = await Key.find().sort({ createdAt: -1 });
+        res.json(keys);
+    } catch (err) {
+        res.status(500).json({ error: "Fetch Failed" });
+    }
+});
+
 app.post('/api/generate', async (req, res) => {
     try {
         const { plan, game, customKey } = req.body;
-        
-        // FIX: Generate the key and save it as LOWERCASE in DB
         let keyVal = customKey || ("WASIM-" + crypto.randomBytes(4).toString('hex'));
         keyVal = keyVal.toLowerCase().trim(); 
         
@@ -117,22 +132,14 @@ app.post('/api/generate', async (req, res) => {
     }
 });
 
-// --- THE REST OF YOUR CODE (Admin fetch/delete/static) ---
-app.get('/api/admin/keys', async (req, res) => {
-    try {
-        const keys = await Key.find().sort({ createdAt: -1 });
-        res.json(keys);
-    } catch (err) {
-        res.status(500).json({ error: "Fetch Failed" });
-    }
-});
-
 app.delete('/api/admin/keys/:id', async (req, res) => {
     await Key.findByIdAndDelete(req.params.id);
     res.json({ success: true });
 });
 
+// --- 5. STATIC FILES & ROUTING ---
 app.use(express.static(path.join(__dirname, 'public')));
+
 app.get('*', (req, res) => {
     const url = req.url.toLowerCase();
     if (url.includes('/api/') || url.includes('/verify')) {
@@ -141,6 +148,7 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// --- 6. START SERVER ---
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
     console.log(`🚀 SERVER RUNNING ON PORT ${PORT}`);
