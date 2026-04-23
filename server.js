@@ -14,7 +14,7 @@ mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log("✅ MongoDB Connected"))
     .catch(err => console.error("❌ DB Error:", err));
 
-// 2. Schema
+// 2. Database Schema
 const KeySchema = new mongoose.Schema({
     key: String,
     game: String,
@@ -24,7 +24,7 @@ const KeySchema = new mongoose.Schema({
 });
 const Key = mongoose.model('Key', KeySchema);
 
-// 3. ADMIN API ROUTES
+// 3. ADMIN PANEL API ROUTES
 app.get('/api/admin/keys', async (req, res) => {
     const keys = await Key.find().sort({ createdAt: -1 });
     res.json(keys);
@@ -48,21 +48,23 @@ app.post('/api/generate', async (req, res) => {
     res.json(newKey);
 });
 
-// --- 4. THE LOADER VERIFY LOGIC (CRASH PROOF) ---
+// --- 4. THE LOADER VERIFY LOGIC (CRASH PROOF & COMPLETE) ---
 app.all('/api/ve*', async (req, res) => {
     try {
         const key = req.query.key || req.body.key || "";
 
-        // Default Object - Sab Strings mein taaki loader crash na ho
+        // Sabhi fields ko String mein rakha hai taaki "null" error na aaye
         let response = {
             status: "INVALID",
             auth: "false",
-            message: "Invalid Key",
+            message: "Invalid License",
             expiry: "0000-00-00",
-            user: "none",
+            user: "Guest",
             token: "none",
-            game: "none",
-            plan: "none"
+            game: "GameZone",
+            plan: "None",
+            user_user: "none", // Kuch loaders ise mangte hain
+            game_name: "GameZone"
         };
 
         if (!key) {
@@ -83,14 +85,17 @@ app.all('/api/ve*', async (req, res) => {
             return res.status(200).json(response);
         }
 
+        // SUCCESS RESPONSE
         res.status(200).json({ 
             status: "SUCCESS", 
             auth: "true",
             message: "Login Success",
             expiry: expiryStr,
-            user: "PremiumUser",
-            token: "AuthToken_" + crypto.randomBytes(4).toString('hex'),
-            game: foundKey.game || "Mod",
+            user: "Premium_User",
+            user_user: "Premium_User",
+            token: "Auth_" + crypto.randomBytes(4).toString('hex'),
+            game: foundKey.game || "GameZone",
+            game_name: foundKey.game || "GameZone",
             plan: foundKey.plan || "VIP"
         });
 
@@ -99,7 +104,7 @@ app.all('/api/ve*', async (req, res) => {
     }
 });
 
-// --- 5. PANEL RESTORE (Dashboard wapas laane ke liye) ---
+// --- 5. PANEL RESTORE & STATIC FILES ---
 app.use(express.static('public'));
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
