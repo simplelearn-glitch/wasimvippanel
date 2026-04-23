@@ -11,42 +11,78 @@ app.use(cors());
 
 mongoose.connect(process.env.MONGO_URI).then(() => console.log("✅ DB Connected"));
 
-const Key = mongoose.model('Key', new mongoose.Schema({
-    key: String, game: String, plan: String, expiresAt: Date, createdAt: { type: Date, default: Date.now }
-}));
+// --- 1. SCHEMA UPDATE (Adding hwid) ---
+const KeySchema = new mongoose.Schema({
+    key: String, 
+    game: String, 
+    plan: String, 
+    hwid: { type: String, default: null }, // Pehli baar login par save hoga
+    isUsed: { type: Boolean, default: false },
+    expiresAt: Date, 
+    createdAt: { type: Date, default: Date.now }
+});
+const Key = mongoose.model('Key', KeySchema);
 
-// --- 3. LOADER API (HAR EK FIELD JO LOADER MANG SAKTA HAI) ---
-app.all(['/api/ve*', '/verify', '/verify/'], (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    
-    // In saari fields ko dhyan se dekho, ye standard Nitro/Global format hai
-    const response = {
-        "status": "SUCCESS",
-        "auth": "true",
-        "message": "Login Success",
-        "expiry": "2026-12-31",
-        "user": "PremiumUser",
-        "user_user": "PremiumUser",
-        "token": "72922806",
-        "game": "GameZone",
-        "game_name": "GameZone",
-        "rank": "VipUser",
-        "level": "100",         // String format wapas kar diya
-        "credits": "9999",      // String format wapas kar diya
-        "mod_status": "Active",
-        "device_id": "Verified",
-        "maintenance": "false",
-        "is_admin": "false",
-        "start_date": "2026-04-01", // Missing Field 1
-        "end_date": "2026-12-31",   // Missing Field 2
-        "days_left": "250",         // Missing Field 3
-        "subscription": "Lifetime"  // Missing Field 4
-    };
-
-    return res.status(200).json(response);
+// --- 2. SERVER REAL-TIME STATUS API ---
+// Isse aapka loader/dashboard check karega server online hai ya nahi
+app.get('/api/server-status', (req, res) => {
+    res.status(200).json({ 
+        status: "Online", 
+        maintenance: false, 
+        time: new Date().toISOString() 
+    });
 });
 
-// --- 4. ADMIN API (DASHBOARD FIX) ---
+// --- 3. UPDATED VERIFY API (With HWID Lock) ---
+app.all(['/api/verify', '/verify'], async (req, res) => {
+    const { key, hwid } = req.query; // Loader se 'key' aur 'hwid' query param mein aayenge
+
+    if (!key) return res.json({ status: "FAILED", message: "Key is missing!" });
+
+    try {
+        const foundKey = await Key.findOne({ key: key });
+
+        if (!foundKey) {
+            return res.json({ status: "FAILED", message: "Invalid License Key" });
+        }
+
+        // Expiry Check
+        if (new Date() > foundKey.expiresAt) {
+            return res.json({ status: "FAILED", message: "Key Expired!" });
+        }
+
+        // HWID LOCK LOGIC (Single Device)
+        if (foundKey.hwid && foundKey.hwid !== hwid) {
+            return res.json({ status: "FAILED", message: "Key already used in another device!" });
+        }
+
+        // Agar pehli baar use ho rahi hai toh HWID lock kar do
+        if (!foundKey.hwid && hwid) {
+            foundKey.hwid = hwid;
+            foundKey.isUsed = true;
+            await foundKey.save();
+        }
+
+        // Calculate days left
+        const daysLeft = Math.ceil((foundKey.expiresAt - new Date()) / (1000 * 60 * 60 * 24));
+
+        return res.json({
+            "status": "SUCCESS",
+            "auth": "true",
+            "message": "Login Success",
+            "expiry": foundKey.expiresAt.toISOString().split('T')[0],
+            "game": foundKey.game,
+            "device_id": foundKey.hwid ? "Locked" : "Verified",
+            "days_left": daysLeft.toString(),
+            "subscription": foundKey.plan
+        });
+
+    } catch (err) {
+        res.json({ status: "ERROR", message: "Server Error" });
+    }
+});
+
+// --- 4. ADMIN API (Jaisa tha waisa hi hai) ---
 app.get('/api/admin/keys', async (req, res) => {
     const keys = await Key.find().sort({ createdAt: -1 });
     res.json(keys);
@@ -61,9 +97,14 @@ app.post('/api/generate', async (req, res) => {
         const expiryDate = new Date();
         expiryDate.setHours(expiryDate.getHours() + hours);
 
-        const newKey = new Key({ key: keyVal, game: game || "PUBG Mobile", plan: plan || "2 Hours", expiresAt: expiryDate });
-        const savedKey = await newKey.save();
-        res.status(200).json(savedKey);
+        const newKey = new Key({ 
+            key: keyVal, 
+            game: game || "PUBG Mobile", 
+            plan: plan || "2 Hours", 
+            expiresAt: expiryDate 
+        });
+        await newKey.save();
+        res.status(200).json(newKey);
     } catch (err) {
         res.status(500).json({ error: "Failed" });
     }
@@ -74,7 +115,6 @@ app.delete('/api/admin/keys/:id', async (req, res) => {
     res.json({ success: true });
 });
 
-// --- 5. STATIC FILES ---
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('*', (req, res) => {
     const url = req.url.toLowerCase();
@@ -83,4 +123,4 @@ app.get('*', (req, res) => {
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`🚀 ULTIMATE BYPASS LIVE`));
+app.listen(PORT, () => console.log(`🚀 SECURE SERVER LIVE`));
