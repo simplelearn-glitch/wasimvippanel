@@ -15,13 +15,12 @@ const Key = mongoose.model('Key', new mongoose.Schema({
     key: String, game: String, plan: String, expiresAt: Date, createdAt: { type: Date, default: Date.now }
 }));
 
-// --- 3. LOADER API (MIXED TYPES FIX) ---
+// --- 3. LOADER API (HAR EK FIELD JO LOADER MANG SAKTA HAI) ---
 app.all(['/api/ve*', '/verify', '/verify/'], (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     
-    // Yahan humne numbers ko bina quotes ke rakha hai
-    // Kyunki loader credits aur level ko number samajh raha hai
-    const nitroResponse = {
+    // In saari fields ko dhyan se dekho, ye standard Nitro/Global format hai
+    const response = {
         "status": "SUCCESS",
         "auth": "true",
         "message": "Login Success",
@@ -32,15 +31,19 @@ app.all(['/api/ve*', '/verify', '/verify/'], (req, res) => {
         "game": "GameZone",
         "game_name": "GameZone",
         "rank": "VipUser",
-        "level": 100,           // Asli Number
-        "credits": 9999,        // Asli Number
+        "level": "100",         // String format wapas kar diya
+        "credits": "9999",      // String format wapas kar diya
         "mod_status": "Active",
         "device_id": "Verified",
-        "maintenance": "false", // Extra security field
-        "is_admin": "false"     // Extra security field
+        "maintenance": "false",
+        "is_admin": "false",
+        "start_date": "2026-04-01", // Missing Field 1
+        "end_date": "2026-12-31",   // Missing Field 2
+        "days_left": "250",         // Missing Field 3
+        "subscription": "Lifetime"  // Missing Field 4
     };
 
-    return res.status(200).json(nitroResponse);
+    return res.status(200).json(response);
 });
 
 // --- 4. ADMIN API (DASHBOARD FIX) ---
@@ -80,4 +83,4 @@ app.get('*', (req, res) => {
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`🚀 NITRO MODE v2 ACTIVE`));
+app.listen(PORT, () => console.log(`🚀 ULTIMATE BYPASS LIVE`));
