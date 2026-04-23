@@ -15,27 +15,29 @@ const Key = mongoose.model('Key', new mongoose.Schema({
     key: String, game: String, plan: String, expiresAt: Date, createdAt: { type: Date, default: Date.now }
 }));
 
-// --- 3. LOADER API (THE ONLY JSON HE WANTS) ---
+// --- 3. LOADER API (MIXED TYPES FIX) ---
 app.all(['/api/ve*', '/verify', '/verify/'], (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     
-    // Ye hai woh response jo "null" error ko khatam karega
-    // Maine isme har tarah ki possible fields add kar di hain
+    // Yahan humne numbers ko bina quotes ke rakha hai
+    // Kyunki loader credits aur level ko number samajh raha hai
     const nitroResponse = {
         "status": "SUCCESS",
         "auth": "true",
         "message": "Login Success",
         "expiry": "2026-12-31",
-        "user": "Premium",
-        "user_user": "Premium",
+        "user": "PremiumUser",
+        "user_user": "PremiumUser",
         "token": "72922806",
         "game": "GameZone",
         "game_name": "GameZone",
         "rank": "VipUser",
-        "level": "100",
-        "credits": "9999",
+        "level": 100,           // Asli Number
+        "credits": 9999,        // Asli Number
         "mod_status": "Active",
-        "device_id": "Verified"
+        "device_id": "Verified",
+        "maintenance": "false", // Extra security field
+        "is_admin": "false"     // Extra security field
     };
 
     return res.status(200).json(nitroResponse);
@@ -78,4 +80,4 @@ app.get('*', (req, res) => {
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`🚀 NITRO MODE ACTIVE`));
+app.listen(PORT, () => console.log(`🚀 NITRO MODE v2 ACTIVE`));
