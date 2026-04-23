@@ -10,83 +10,95 @@ app.use(express.json());
 app.use(cors());
 
 // 1. Database Connection
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("✅ MongoDB Connected"))
-    .catch(err => console.error("❌ DB Error:", err));
+mongoose.connect(process.env.MONGO_URI).then(() => console.log("✅ DB Connected"));
 
 // 2. Schema
-const KeySchema = new mongoose.Schema({
-    key: String,
-    game: String,
-    plan: String,
-    expiresAt: Date,
-    createdAt: { type: Date, default: Date.now }
-});
-const Key = mongoose.model('Key', KeySchema);
+const Key = mongoose.model('Key', new mongoose.Schema({
+    key: String, game: String, plan: String, expiresAt: Date, createdAt: { type: Date, default: Date.now }
+}));
 
-// 3. ADMIN API (Dashboard ke liye)
+// 3. ADMIN API (Panel ke liye)
 app.get('/api/admin/keys', async (req, res) => {
-    try {
-        const keys = await Key.find().sort({ createdAt: -1 });
-        res.json(keys);
-    } catch (err) { res.status(500).send(err); }
+    const keys = await Key.find().sort({ createdAt: -1 });
+    res.json(keys);
 });
 
 app.delete('/api/admin/keys/:id', async (req, res) => {
-    try {
-        await Key.findByIdAndDelete(req.params.id);
-        res.json({ success: true });
-    } catch (err) { res.status(500).send(err); }
+    await Key.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
 });
 
 app.post('/api/generate', async (req, res) => {
-    try {
-        const { plan, game, customKey } = req.body;
-        const keyVal = customKey || ("WASIM-" + crypto.randomBytes(3).toString('hex').toUpperCase());
-        
-        const planMap = { "2 Hours": 2, "5 Hours": 5, "24 Hours": 24, "7 Days": 168, "30 Days": 720 };
-        const hours = planMap[plan] || 2;
-        
-        const expiryDate = new Date();
-        expiryDate.setHours(expiryDate.getHours() + hours);
-
-        const newKey = new Key({ key: keyVal, game, plan, expiresAt: expiryDate });
-        await newKey.save();
-        res.json(newKey);
-    } catch (err) { res.status(500).send(err); }
+    const { plan, game, customKey } = req.body;
+    const keyVal = customKey || ("WASIM-" + crypto.randomBytes(3).toString('hex').toUpperCase());
+    const hours = { "2 Hours": 2, "5 Hours": 5, "24 Hours": 24, "7 Days": 168, "30 Days": 720 }[plan] || 2;
+    const expiryDate = new Date();
+    expiryDate.setHours(expiryDate.getHours() + hours);
+    const newKey = new Key({ key: keyVal, game, plan, expiresAt: expiryDate });
+    await newKey.save();
+    res.json(newKey);
 });
 
-// --- 4. LOADER VERIFY (PLAIN TEXT STYLE - NO CRASH) ---
+// --- 4. LOADER VERIFY (PERFECT JSON - NO CRASH) ---
 app.all('/api/ve*', async (req, res) => {
     try {
         const key = req.query.key || req.body.key || "";
         
-        if (!key) return res.send("INVALID|Key Required|0000-00-00");
+        // Loader ko "null" aur "parse error" se bachane ke liye complete JSON
+        let result = {
+            "status": "INVALID",
+            "auth": "false",
+            "message": "Invalid Key",
+            "expiry": "0000-00-00",
+            "user": "Guest",
+            "token": "none",
+            "game": "GameZone",
+            "plan": "None",
+            "user_user": "none",
+            "game_name": "GameZone"
+        };
 
-        const foundKey = await Key.findOne({ key: key });
-        if (!foundKey) return res.send("INVALID|Invalid License|0000-00-00");
-
-        const now = new Date();
-        const exp = foundKey.expiresAt ? foundKey.expiresAt.toISOString().split('T')[0] : "2026-12-31";
-
-        if (foundKey.expiresAt && now > foundKey.expiresAt) {
-            return res.send(`EXPIRED|License Expired|${exp}`);
+        if (!key) {
+            result.message = "Key Required";
+            return res.status(200).json(result);
         }
 
-        // SUCCESS RESPONSE (Format: STATUS|MESSAGE|EXPIRY)
-        res.send(`SUCCESS|Login Successful|${exp}`);
+        const foundKey = await Key.findOne({ key: key });
+        if (!foundKey) return res.status(200).json(result);
+
+        const now = new Date();
+        const expStr = foundKey.expiresAt ? foundKey.expiresAt.toISOString().split('T')[0] : "2026-12-31";
+
+        if (foundKey.expiresAt && now > foundKey.expiresAt) {
+            result.status = "EXPIRED";
+            result.message = "Key Expired";
+            result.expiry = expStr;
+            return res.status(200).json(result);
+        }
+
+        // SUCCESS RESPONSE
+        res.status(200).json({ 
+            "status": "SUCCESS", 
+            "auth": "true",
+            "message": "Login Success",
+            "expiry": expStr,
+            "user": "PremiumUser",
+            "user_user": "PremiumUser",
+            "token": "Auth_" + crypto.randomBytes(4).toString('hex'),
+            "game": foundKey.game || "GameZone",
+            "game_name": foundKey.game || "GameZone",
+            "plan": foundKey.plan || "VIP"
+        });
 
     } catch (err) {
-        res.send("ERROR|Server Error|0000-00-00");
+        res.status(200).json({ "status": "ERROR", "auth": "false", "expiry": "0000-00-00" });
     }
 });
 
-// --- 5. DASHBOARD & STATIC FILES ---
+// --- 5. DASHBOARD RESTORE ---
 app.use(express.static('public'));
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Port settings
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`🚀 Server Live on Port ${PORT}`));
+app.listen(process.env.PORT || 10000);
