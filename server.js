@@ -58,41 +58,59 @@ app.post('/api/generate', async (req, res) => {
     res.json(newKey);
 });
 
-// --- 4. ADVANCED KEY SYSTEM (CRASH-PROOF & ACCURATE) ---
-// Ye section Line 62 se 82 tak replace karega
+// --- 4. ADVANCED KEY SYSTEM (FIXED FOR NO CRASH) ---
 app.all('/api/ve*', async (req, res) => {
     try {
         const key = req.query.key || req.body.key;
 
+        // Common response structure taaki loader ko "null" na mile
+        const baseResponse = {
+            status: "INVALID",
+            auth: "false",
+            message: "Key Required",
+            expiry: "0000-00-00" // String format mein taaki crash na ho
+        };
+
         // 1. Agar key khali hai
         if (!key) {
-            return res.status(200).json({ status: "INVALID", message: "Key required" });
+            return res.status(200).json(baseResponse);
         }
 
         const foundKey = await Key.findOne({ key: key });
 
         // 2. Agar key database mein nahi mili
         if (!foundKey) {
-            return res.status(200).json({ status: "INVALID", message: "Key not found" });
+            baseResponse.message = "Invalid Key";
+            return res.status(200).json(baseResponse);
         }
 
-        // 3. Expiry Check logic
+        // 3. Expiry Check
         const now = new Date();
         if (foundKey.expiresAt && now > foundKey.expiresAt) {
-            return res.status(200).json({ status: "EXPIRED", message: "Key has expired" });
+            return res.status(200).json({
+                status: "EXPIRED",
+                auth: "false",
+                message: "Key Expired",
+                expiry: foundKey.expiresAt.toISOString().split('T')[0]
+            });
         }
 
         // 4. Sab sahi hai toh SUCCESS
         res.status(200).json({ 
             status: "SUCCESS", 
             auth: "true",
-            expiry: foundKey.expiresAt
+            message: "Login Success",
+            expiry: foundKey.expiresAt.toISOString().split('T')[0]
         });
 
     } catch (err) {
-        console.error("Server Error:", err);
-        // Error mein bhi 200 bhejenge taaki loader crash na ho
-        res.status(200).json({ status: "ERROR", message: "Internal server error" });
+        console.error(err);
+        res.status(200).json({ 
+            status: "ERROR", 
+            auth: "false",
+            message: "Server Error",
+            expiry: "0000-00-00"
+        });
     }
 });
 
