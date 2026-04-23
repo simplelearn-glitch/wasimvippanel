@@ -58,26 +58,41 @@ app.post('/api/generate', async (req, res) => {
     res.json(newKey);
 });
 
-// --- 4. FINAL UNIVERSAL FIX ---
-// This matches /api/ve, /api/ver, and /api/verify
+// --- 4. ADVANCED KEY SYSTEM (CRASH-PROOF & ACCURATE) ---
+// Ye section Line 62 se 82 tak replace karega
 app.all('/api/ve*', async (req, res) => {
     try {
-        // This captures the key from either a POST body or a GET URL
         const key = req.query.key || req.body.key;
 
-        if (!key) return res.status(400).json({ status: "INVALID" });
+        // 1. Agar key khali hai
+        if (!key) {
+            return res.status(200).json({ status: "INVALID", message: "Key required" });
+        }
 
         const foundKey = await Key.findOne({ key: key });
 
-        if (!foundKey) return res.json({ status: "INVALID" });
-        
-        const now = new Date();
-        if (now > foundKey.expiresAt) return res.json({ status: "EXPIRED" });
+        // 2. Agar key database mein nahi mili
+        if (!foundKey) {
+            return res.status(200).json({ status: "INVALID", message: "Key not found" });
+        }
 
-        // This JSON tells your app "Login Successful"
-        res.json({ status: "SUCCESS" });
+        // 3. Expiry Check logic
+        const now = new Date();
+        if (foundKey.expiresAt && now > foundKey.expiresAt) {
+            return res.status(200).json({ status: "EXPIRED", message: "Key has expired" });
+        }
+
+        // 4. Sab sahi hai toh SUCCESS
+        res.status(200).json({ 
+            status: "SUCCESS", 
+            auth: "true",
+            expiry: foundKey.expiresAt
+        });
+
     } catch (err) {
-        res.status(500).json({ status: "ERROR" });
+        console.error("Server Error:", err);
+        // Error mein bhi 200 bhejenge taaki loader crash na ho
+        res.status(200).json({ status: "ERROR", message: "Internal server error" });
     }
 });
 
