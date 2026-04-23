@@ -29,32 +29,29 @@ app.post('/api/generate', async (req, res) => {
     await newKey.save(); res.json(newKey);
 });
 
-// --- 4. THE LOADER VERIFY (FIXED FOR POST /API/VE) ---
-// Yahan humne app.all use kiya hai aur rasta '/api/ve*' rakha hai 
-// taaki /api/ve aur /api/verify dono kaam karein
-app.all(['/api/ve', '/api/verify'], async (req, res) => {
+// --- 4. THE LOADER VERIFY (NUMBER STATUS FIX) ---
+app.all(['/api/ve', '/api/verify'], (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     
-    // Loader POST bhej raha hai ya GET, hum dono se key nikalenge
-    const key = req.query.key || req.body.key;
-
-    let response = {
-        "status": "SUCCESS", // Abhi bypass mode on rakhte hain taaki login ho jaye
-        "auth": "true",
+    // Yahan hum status aur auth ko "1" (Number String) bhej rahe hain
+    // Taki loader crash na ho
+    const responseData = {
+        "status": "1",         // Success Code
+        "auth": "1",           // Authorized
         "message": "Login Success",
         "expiry": "2026-12-31",
         "user": "PremiumUser",
         "token": "72922806",
         "game": "GameZone",
-        "rank": "VipUser"
+        "rank": "VipUser",
+        "mod_status": "Active"
     };
 
-    return res.status(200).json(response);
+    return res.status(200).json(responseData);
 });
 
 // --- 5. PANEL & DASHBOARD ---
 app.use(express.static(path.join(__dirname, 'public')));
-
 app.get('*', (req, res) => {
     if (!req.url.startsWith('/api')) {
         res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -62,4 +59,4 @@ app.get('*', (req, res) => {
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`🚀 SERVER LIVE`));
+app.listen(PORT, () => console.log(`🚀 MASTER SERVER LIVE`));
