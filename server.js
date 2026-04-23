@@ -17,7 +17,7 @@ mongoose.connect(process.env.MONGO_URI)
 // --- KEY SCHEMA ---
 const KeySchema = new mongoose.Schema({
     key: { type: String, required: true, unique: true },
-    game: { type: String, default: "GameZone" },
+    game: { type: String, default: "PUBG" },
     plan: { type: String, default: "2 Hours" },
     hwid: { type: String, default: null },
     expiresAt: { type: Date, required: true },
