@@ -61,15 +61,60 @@ app.post('/api/generate', async (req, res) => {
 // --- 4. ADVANCED KEY SYSTEM (FIXED FOR NO CRASH) ---
 app.all('/api/ve*', async (req, res) => {
     try {
-        const key = req.query.key || req.body.key;
+        const key = req.query.key || req.body.key || "";
 
-        // Common response structure taaki loader ko "null" na mile
+        // Loader ko khush rakhne ke liye sari fields string mein
         const baseResponse = {
             status: "INVALID",
             auth: "false",
-            message: "Key Required",
-            expiry: "0000-00-00" // String format mein taaki crash na ho
+            message: "Invalid Key",
+            expiry: "0000-00-00",
+            user: "none",
+            token: "none",
+            game: "none",
+            plan: "none"
         };
+
+        if (!key) {
+            baseResponse.message = "Key Required";
+            return res.status(200).json(baseResponse);
+        }
+
+        const foundKey = await Key.findOne({ key: key });
+
+        if (!foundKey) {
+            return res.status(200).json(baseResponse);
+        }
+
+        const now = new Date();
+        const expiryStr = foundKey.expiresAt ? foundKey.expiresAt.toISOString().split('T')[0] : "0000-00-00";
+
+        if (foundKey.expiresAt && now > foundKey.expiresAt) {
+            return res.status(200).json({
+                ...baseResponse,
+                status: "EXPIRED",
+                message: "Key Expired",
+                expiry: expiryStr
+            });
+        }
+
+        // AGAR SAB SAHI HAI
+        res.status(200).json({ 
+            status: "SUCCESS", 
+            auth: "true",
+            message: "Login Success",
+            expiry: expiryStr,
+            user: "PremiumUser",
+            token: "authenticated_session_token",
+            game: foundKey.game || "GameZone",
+            plan: foundKey.plan || "Premium"
+        });
+
+    } catch (err) {
+        res.status(200).json({ status: "ERROR", message: "Server Error", expiry: "0000-00-00", auth: "false" });
+    }
+});
+
 
         // 1. Agar key khali hai
         if (!key) {
