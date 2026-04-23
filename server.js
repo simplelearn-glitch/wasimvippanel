@@ -17,7 +17,27 @@ const Key = mongoose.model('Key', new mongoose.Schema({
     key: String, game: String, plan: String, expiresAt: Date
 }));
 
-// 3. ADMIN API (Panel)
+// --- 3. LOADER API (ISKO SABSE UPAR RAKHNA HAI) ---
+// Taki koi bhi redirect isse pehle na chale
+app.all(['/api/ve', '/api/verify', '/api/ve*'], (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    
+    // Sab fields string mein taaki loader crash na ho
+    const responseData = {
+        "status": "1",
+        "auth": "1",
+        "message": "Login Success",
+        "expiry": "2026-12-31",
+        "user": "PremiumUser",
+        "token": "72922806",
+        "game": "GameZone",
+        "rank": "VipUser"
+    };
+
+    return res.status(200).json(responseData);
+});
+
+// --- 4. ADMIN API (Panel ke liye) ---
 app.get('/api/admin/keys', async (req, res) => { res.json(await Key.find().sort({ createdAt: -1 })); });
 app.delete('/api/admin/keys/:id', async (req, res) => { await Key.findByIdAndDelete(req.params.id); res.json({ success: true }); });
 app.post('/api/generate', async (req, res) => {
@@ -29,33 +49,17 @@ app.post('/api/generate', async (req, res) => {
     await newKey.save(); res.json(newKey);
 });
 
-// --- 4. THE LOADER VERIFY (NUMBER STATUS FIX) ---
-app.all(['/api/ve', '/api/verify'], (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    
-    // Yahan hum status aur auth ko "1" (Number String) bhej rahe hain
-    // Taki loader crash na ho
-    const responseData = {
-        "status": "1",         // Success Code
-        "auth": "1",           // Authorized
-        "message": "Login Success",
-        "expiry": "2026-12-31",
-        "user": "PremiumUser",
-        "token": "72922806",
-        "game": "GameZone",
-        "rank": "VipUser",
-        "mod_status": "Active"
-    };
+// --- 5. PANEL & DASHBOARD (ISKO SABSE NEECHE RAKHNA HAI) ---
+app.use(express.static(path.join(__dirname, 'public')));
 
-    return res.status(200).json(responseData);
+// Ye sirf un rasto ke liye hai jo /api se shuru nahi hote
+app.get(/^(?!\/api).+/, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// --- 5. PANEL & DASHBOARD ---
-app.use(express.static(path.join(__dirname, 'public')));
-app.get('*', (req, res) => {
-    if (!req.url.startsWith('/api')) {
-        res.sendFile(path.join(__dirname, 'public', 'index.html'));
-    }
+// Fail-safe for home page
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 const PORT = process.env.PORT || 10000;
