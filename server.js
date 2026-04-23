@@ -15,21 +15,26 @@ const Key = mongoose.model('Key', new mongoose.Schema({
     key: String, game: String, plan: String, expiresAt: Date
 }));
 
-// --- 3. LOADER API (STRICT DATA TYPES) ---
+// --- 3. LOADER API (HAR EK FIELD COVERED) ---
 app.all(['/api/ve*', '/verify', '/verify/'], (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     
-    // Yahan hum status aur auth ko bina quotes ke bhej rahe hain
-    // Taki C++ loader use "null" na samjhe
+    // Sab fields ko string mein rakhte hain, sirf status/auth ko number/boolean
     const responseData = {
-        status: 1,             // Asli Number
-        auth: true,            // Asli Boolean
+        status: 1,
+        auth: true,
         message: "Login Success",
         expiry: "2026-12-31",
         user: "PremiumUser",
         token: "72922806",
         game: "GameZone",
-        rank: "VipUser"
+        rank: "VipUser",
+        // Ye niche wali fields aksar crash ki wajah banti hain
+        device_id: "VerifiedDevice", 
+        hwid: "FixedHWID",
+        mod_status: "Active",
+        credits: "1000",
+        plan: "Lifetime"
     };
 
     return res.status(200).send(JSON.stringify(responseData));
@@ -56,4 +61,4 @@ app.get('*', (req, res) => {
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`🚀 FINAL BYPASS LIVE`));
+app.listen(PORT, () => console.log(`🚀 MASTER SERVER LIVE`));
