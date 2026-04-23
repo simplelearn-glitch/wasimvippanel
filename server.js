@@ -9,13 +9,13 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-mongoose.connect(process.env.MONGO_URI).then(() => console.log("✅ DB OK"));
+mongoose.connect(process.env.MONGO_URI).then(() => console.log("✅ DB Connected"));
 
 const Key = mongoose.model('Key', new mongoose.Schema({
     key: String, game: String, plan: String, expiresAt: Date
 }));
 
-// --- ADMIN API ---
+// ADMIN API
 app.get('/api/admin/keys', async (req, res) => { res.json(await Key.find().sort({ createdAt: -1 })); });
 app.delete('/api/admin/keys/:id', async (req, res) => { await Key.findByIdAndDelete(req.params.id); res.json({ success: true }); });
 app.post('/api/generate', async (req, res) => {
@@ -27,15 +27,20 @@ app.post('/api/generate', async (req, res) => {
     await newKey.save(); res.json(newKey);
 });
 
-// --- 4. THE LOADER BYPASS (PLAIN STRING - NO JSON) ---
-app.all('/api/ve*', async (req, res) => {
-    // Agar JSON se "null" aa raha hai, toh seedha text bhejte hain
-    // Format: status|auth|message|expiry|user|token
-    const exp = "2026-12-31";
-    const token = crypto.randomBytes(4).toString('hex');
+// --- 4. THE ULTIMATE BYPASS (CRASH-PROOF) ---
+app.all('/api/ve*', (req, res) => {
+    // Header set karna bohot zaruri hai
+    res.setHeader('Content-Type', 'application/json');
     
-    // Ye line loader ko bina kisi "Type Error" ke login karwa degi
-    res.send(`SUCCESS|true|Login Successful|${exp}|PremiumUser|${token}|GameZone|Admin|9999`);
+    // Sirf wahi bhej rahe hain jo loader pakka mangta hai
+    res.status(200).send(JSON.stringify({
+        "status": "SUCCESS",
+        "auth": "true",
+        "message": "Login Success",
+        "expiry": "2026-12-31",
+        "user": "PremiumUser",
+        "token": "72922806"
+    }));
 });
 
 app.use(express.static('public'));
