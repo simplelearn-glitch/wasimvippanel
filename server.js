@@ -6,6 +6,8 @@ const path = require('path');
 require('dotenv').config();
 
 const app = express();
+
+// Middleware
 app.use(express.json());
 app.use(cors());
 
@@ -17,12 +19,12 @@ const Key = mongoose.model('Key', new mongoose.Schema({
     key: String, game: String, plan: String, expiresAt: Date
 }));
 
-// --- 3. LOADER API (ISKO SABSE UPAR RAKHNA HAI) ---
-// Taki koi bhi redirect isse pehle na chale
+// --- 3. LOADER API (SABSE PEHLE - NO REDIRECT) ---
+// Yahan humne rasta ekdam clear kar diya hai
 app.all(['/api/ve', '/api/verify', '/api/ve*'], (req, res) => {
+    // Ye line browser aur loader ko batati hai ki ye sirf JSON hai
     res.setHeader('Content-Type', 'application/json');
     
-    // Sab fields string mein taaki loader crash na ho
     const responseData = {
         "status": "1",
         "auth": "1",
@@ -37,7 +39,7 @@ app.all(['/api/ve', '/api/verify', '/api/ve*'], (req, res) => {
     return res.status(200).json(responseData);
 });
 
-// --- 4. ADMIN API (Panel ke liye) ---
+// --- 4. ADMIN API ---
 app.get('/api/admin/keys', async (req, res) => { res.json(await Key.find().sort({ createdAt: -1 })); });
 app.delete('/api/admin/keys/:id', async (req, res) => { await Key.findByIdAndDelete(req.params.id); res.json({ success: true }); });
 app.post('/api/generate', async (req, res) => {
@@ -49,18 +51,19 @@ app.post('/api/generate', async (req, res) => {
     await newKey.save(); res.json(newKey);
 });
 
-// --- 5. PANEL & DASHBOARD (ISKO SABSE NEECHE RAKHNA HAI) ---
+// --- 5. DASHBOARD (SIRF NON-API ROUTES KE LIYE) ---
+// Static files serve karein
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Ye sirf un rasto ke liye hai jo /api se shuru nahi hote
+// Agar link /api se shuru NAHI hota, tabhi index.html bhejien
 app.get(/^(?!\/api).+/, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Fail-safe for home page
+// Home page direct access
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`🚀 MASTER SERVER LIVE`));
+app.listen(PORT, () => console.log(`🚀 WASIM SERVER LIVE`));
