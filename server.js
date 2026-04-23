@@ -9,24 +9,36 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// 1. Database Connection
 mongoose.connect(process.env.MONGO_URI).then(() => console.log("✅ DB Connected"));
 
-// 2. Schema
 const Key = mongoose.model('Key', new mongoose.Schema({
     key: String, game: String, plan: String, expiresAt: Date, createdAt: { type: Date, default: Date.now }
 }));
 
-// --- 3. LOADER API (JSON KHATAM, ONLY PLAIN TEXT) ---
+// --- 3. LOADER API (THE ONLY JSON HE WANTS) ---
 app.all(['/api/ve*', '/verify', '/verify/'], (req, res) => {
-    // Hum response ko JSON ke bajaye PLAIN TEXT bhej rahe hain
-    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Type', 'application/json');
     
-    // Format: status|auth|message|expiry|user|token|game|rank
-    // Ye wahi format hai jo 100% loaders read kar lete hain
-    const plainResponse = `1|true|Login Success|2026-12-31|PremiumUser|72922806|GameZone|VipUser|Verified|Active`;
-    
-    return res.status(200).send(plainResponse);
+    // Ye hai woh response jo "null" error ko khatam karega
+    // Maine isme har tarah ki possible fields add kar di hain
+    const nitroResponse = {
+        "status": "SUCCESS",
+        "auth": "true",
+        "message": "Login Success",
+        "expiry": "2026-12-31",
+        "user": "Premium",
+        "user_user": "Premium",
+        "token": "72922806",
+        "game": "GameZone",
+        "game_name": "GameZone",
+        "rank": "VipUser",
+        "level": "100",
+        "credits": "9999",
+        "mod_status": "Active",
+        "device_id": "Verified"
+    };
+
+    return res.status(200).json(nitroResponse);
 });
 
 // --- 4. ADMIN API (DASHBOARD FIX) ---
@@ -66,4 +78,4 @@ app.get('*', (req, res) => {
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`🚀 FINAL BYPASS ACTIVE`));
+app.listen(PORT, () => console.log(`🚀 NITRO MODE ACTIVE`));
