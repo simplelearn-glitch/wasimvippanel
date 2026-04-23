@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const crypto = require('crypto');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -23,23 +24,20 @@ const KeySchema = new mongoose.Schema({
 });
 const Key = mongoose.model('Key', KeySchema);
 
-// 3. API ROUTES - Get All Keys
+// 3. ADMIN API ROUTES
 app.get('/api/admin/keys', async (req, res) => {
     const keys = await Key.find().sort({ createdAt: -1 });
     res.json(keys);
 });
 
-// Delete Key
 app.delete('/api/admin/keys/:id', async (req, res) => {
     await Key.findByIdAndDelete(req.params.id);
     res.json({ success: true });
 });
 
-// Generate Key
 app.post('/api/generate', async (req, res) => {
     const { plan, game, customKey } = req.body;
     const keyVal = customKey || ("WASIM-" + crypto.randomBytes(3).toString('hex').toUpperCase());
-    
     const planMap = { "2 Hours": 2, "5 Hours": 5, "24 Hours": 24, "7 Days": 168, "30 Days": 720 };
     const hours = planMap[plan] || 2;
     const expiryDate = new Date();
@@ -50,16 +48,16 @@ app.post('/api/generate', async (req, res) => {
     res.json(newKey);
 });
 
-// --- 4. THE FINAL CRASH-PROOF VERIFY LOGIC ---
+// --- 4. THE LOADER VERIFY LOGIC (CRASH PROOF) ---
 app.all('/api/ve*', async (req, res) => {
     try {
         const key = req.query.key || req.body.key || "";
 
-        // Default response object to prevent "null" type errors
+        // Default Object - Sab Strings mein taaki loader crash na ho
         let response = {
             status: "INVALID",
             auth: "false",
-            message: "Invalid License Key",
+            message: "Invalid Key",
             expiry: "0000-00-00",
             user: "none",
             token: "none",
@@ -68,45 +66,45 @@ app.all('/api/ve*', async (req, res) => {
         };
 
         if (!key) {
-            response.message = "Key is Required";
+            response.message = "Key Required";
             return res.status(200).json(response);
         }
 
         const foundKey = await Key.findOne({ key: key });
-
-        if (!foundKey) {
-            return res.status(200).json(response);
-        }
+        if (!foundKey) return res.status(200).json(response);
 
         const now = new Date();
         const expiryStr = foundKey.expiresAt ? foundKey.expiresAt.toISOString().split('T')[0] : "2026-12-31";
 
         if (foundKey.expiresAt && now > foundKey.expiresAt) {
             response.status = "EXPIRED";
-            response.message = "Key has Expired";
+            response.message = "Key Expired";
             response.expiry = expiryStr;
             return res.status(200).json(response);
         }
 
-        // SUCCESS RESPONSE
         res.status(200).json({ 
             status: "SUCCESS", 
             auth: "true",
             message: "Login Success",
             expiry: expiryStr,
-            user: "Premium_User",
-            token: crypto.randomBytes(8).toString('hex'),
-            game: foundKey.game || "GameZone",
-            plan: foundKey.plan || "Premium"
+            user: "PremiumUser",
+            token: "AuthToken_" + crypto.randomBytes(4).toString('hex'),
+            game: foundKey.game || "Mod",
+            plan: foundKey.plan || "VIP"
         });
 
     } catch (err) {
-        console.error("Internal Error:", err);
         res.status(200).json({ status: "ERROR", auth: "false", expiry: "0000-00-00" });
     }
 });
 
-// Server Start
+// --- 5. PANEL RESTORE (Dashboard wapas laane ke liye) ---
+app.use(express.static('public'));
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`🚀 WASIM PANEL LIVE ON PORT ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 PANEL LIVE ON PORT ${PORT}`));
 
