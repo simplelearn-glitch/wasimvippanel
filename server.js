@@ -6,12 +6,13 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 1. DATABASE
+// 1. DATABASE CONNECTION
+// Render ke Environment Variables mein MONGO_URI set karna mat bhulna
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("✅ Database Connected Successfully"))
-    .catch((err) => console.log("❌ DB Connection Error: ", err));
+    .then(() => console.log("✅ Database Connected"))
+    .catch((err) => console.log("❌ DB Error: ", err));
 
-// 2. SCHEMA
+// 2. DATA MODEL
 const Key = mongoose.model('Key', {
     key: String,
     hwid: { type: String, default: "NOT_SET" },
@@ -21,29 +22,27 @@ const Key = mongoose.model('Key', {
     createdAt: { type: Date, default: Date.now }
 });
 
-// 3. LOGIN API (The GameZone Fixer)
-app.post(['/connect*', '/conne*', '/api*'], async (req, res) => {
+// 3. LOGIN API (FORCED ROOT BYPASS)
+// Agar loader '/connect' nahi dhoond pa raha, toh ye '/' par bhi login lega
+app.post(['/', '/connect*', '/conne*', '/api*'], async (req, res) => {
     try {
         const { key, hwid } = req.body;
-        console.log(`[*] Login Request -> Key: ${key}, HWID: ${hwid}`);
+        console.log(`[*] Login Attempt -> Key: \${key}`);
+
+        if (!key) {
+            return res.status(200).json({ status: false, message: "NO_KEY", expiry: "N/A" });
+        }
 
         const foundKey = await Key.findOne({ key: key });
 
-        // Jab Key na mile
         if (!foundKey) {
-            return res.status(200).json({ 
-                status: false, 
-                message: "INVALID_KEY", 
-                expiry: "00-00-00 00:00:00" 
-            });
+            return res.status(200).json({ status: false, message: "INVALID_KEY", expiry: "N/A" });
         }
 
-        // Check Block/Expiry
         if (foundKey.isBlocked) return res.status(200).json({ status: false, message: "USER_BANNED", expiry: "N/A" });
         if (new Date() > foundKey.expiryDate) return res.status(200).json({ status: false, message: "KEY_EXPIRED", expiry: "N/A" });
 
-        // HWID FIX (Agar HWID undefined ho toh bypass na ho, par key set ho jaye)
-        const deviceId = hwid || "UNKNOWN_DEVICE";
+        const deviceId = hwid || "DEV_STATION";
         if (foundKey.hwid === "NOT_SET") {
             foundKey.hwid = deviceId;
             await foundKey.save();
@@ -51,27 +50,25 @@ app.post(['/connect*', '/conne*', '/api*'], async (req, res) => {
             return res.status(200).json({ status: false, message: "HWID_MISMATCH", expiry: "N/A" });
         }
 
-        // SUCCESS RESPONSE
         const formattedExpiry = foundKey.expiryDate.toISOString().replace('T', ' ').split('.')[0];
         
+        // Final Success JSON structure for GameZone Loader
         return res.status(200).json({ 
             status: true, 
             message: "LOGIN_SUCCESS",
             expiry: formattedExpiry,
             data: {
-                username: "WASIM_PREMIUM",
+                username: "WASIM_VIP",
                 expiry: formattedExpiry,
-                status: "Premium",
-                mod: "WASIM VIP ENGINE"
+                status: "Premium"
             }
         });
     } catch (e) { 
-        console.log("Error:", e);
-        res.status(200).json({ status: false, message: "SERVER_ERROR", expiry: "N/A" }); 
+        res.status(200).json({ status: false, message: "SERVER_ERROR" }); 
     }
 });
 
-// 4. ADMIN PANEL UI
+// 4. ADMIN PANEL (DASHBOARD)
 app.get('/', (req, res) => {
     res.send(`
     <!DOCTYPE html>
@@ -81,16 +78,15 @@ app.get('/', (req, res) => {
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
             :root { --red: #ff3131; --yellow: #ffde59; }
-            body { background: #000; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; display: flex; }
-            .sidebar { width: 240px; background: #000; height: 100vh; position: fixed; border-right: 2px solid var(--red); padding: 20px; box-shadow: 2px 0 10px rgba(255,0,0,0.3); }
-            .main { margin-left: 280px; padding: 30px; width: calc(100% - 280px); }
-            .card { background: #111; border-left: 5px solid var(--red); padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-            input, select, button { background: #000; border: 1px solid #444; color: var(--yellow); padding: 12px; border-radius: 5px; margin: 5px; outline: none; }
-            button { background: var(--red); color: #fff; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
-            button:hover { opacity: 0.8; transform: scale(1.05); }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            th { text-align: left; padding: 15px; border-bottom: 2px solid var(--red); color: var(--yellow); text-transform: uppercase; font-size: 12px; }
-            td { padding: 15px; border-bottom: 1px solid #222; font-size: 0.85rem; color: #ccc; }
+            body { background: #000; color: #fff; font-family: sans-serif; margin: 0; display: flex; }
+            .sidebar { width: 240px; background: #000; height: 100vh; position: fixed; border-right: 2px solid var(--red); padding: 20px; }
+            .main { margin-left: 260px; padding: 30px; width: calc(100% - 260px); }
+            .card { background: #111; border-left: 5px solid var(--red); padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+            input, select, button { background: #000; border: 1px solid #444; color: var(--yellow); padding: 12px; border-radius: 5px; margin: 5px; }
+            button { background: var(--red); color: #fff; border: none; font-weight: bold; cursor: pointer; }
+            table { width: 100%; border-collapse: collapse; }
+            th { text-align: left; padding: 15px; border-bottom: 2px solid var(--red); color: var(--yellow); }
+            td { padding: 15px; border-bottom: 1px solid #222; font-size: 0.8rem; }
             #auth { position: fixed; inset: 0; background: #000; z-index: 999; display: flex; align-items: center; justify-content: center; }
         </style>
     </head>
@@ -98,30 +94,29 @@ app.get('/', (req, res) => {
         <div id="auth">
             <div class="card" style="text-align:center; width:300px; border-left: 5px solid var(--yellow);">
                 <h2 style="color:var(--red)">WASIM ACCESS</h2>
-                <input type="password" id="pw" placeholder="ENTER MASTER PASSWORD" style="width:80%">
-                <button onclick="login()" style="width:85%; margin-top:15px;">LOGIN</button>
+                <input type="password" id="pw" placeholder="PASSWORD" style="width:80%">
+                <button onclick="login()" style="width:85%; margin-top:15px;">ENTER</button>
             </div>
         </div>
         <div class="sidebar">
-            <h1 style="color:var(--red); font-size: 24px; letter-spacing: 2px;">WASIM VIP</h1>
-            <p style="color:var(--yellow); font-size: 12px;">● SERVER STATUS: ONLINE</p>
-            <hr style="border: 0.5px solid #333; margin: 20px 0;">
+            <h2 style="color:var(--red)">WASIM VIP</h2>
+            <p style="color:var(--yellow)">● SYSTEM: ONLINE</p>
         </div>
         <div class="main">
             <div class="card">
-                <h2 style="color:var(--yellow)">KEY GENERATOR</h2>
-                <input type="text" id="k" placeholder="Custom Key Name (Optional)">
+                <h2 style="color:var(--yellow)">GENERATE KEY</h2>
+                <input type="text" id="k" placeholder="Custom Key Name">
                 <select id="d">
-                    <option value="2">2 Hours Trial</option>
-                    <option value="24">1 Day Premium</option>
-                    <option value="168">7 Days VIP</option>
-                    <option value="720">30 Days Legend</option>
+                    <option value="2">2 Hours</option>
+                    <option value="24">1 Day</option>
+                    <option value="168">7 Days</option>
+                    <option value="720">30 Days</option>
                 </select>
-                <button onclick="gen()">GENERATE KEY</button>
+                <button onclick="gen()">CREATE</button>
             </div>
             <div class="card" style="padding:0">
                 <table>
-                    <thead><tr><th>License Key</th><th>Plan</th><th>Device ID</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Key</th><th>Duration</th><th>HWID</th><th>Actions</th></tr></thead>
                     <tbody id="t"></tbody>
                 </table>
             </div>
@@ -131,49 +126,47 @@ app.get('/', (req, res) => {
                 if(document.getElementById('pw').value === 'wasim786') {
                     document.getElementById('auth').style.display='none';
                     load();
-                } else { alert("ACCESS DENIED!"); }
+                } else { alert("WRONG!"); }
             }
             async function load() {
                 const r = await fetch('/admin/list');
                 const data = await r.json();
                 document.getElementById('t').innerHTML = data.map(k => \`
                     <tr>
-                        <td style="color:var(--yellow); font-weight: bold;">\${k.key}</td>
+                        <td style="color:var(--yellow)">\${k.key}</td>
                         <td>\${k.duration}</td>
-                        <td style="color:#777; font-family: monospace;">\${k.hwid}</td>
+                        <td style="color:#666">\${k.hwid}</td>
                         <td>
-                            <button onclick="act('/admin/reset', '\${k._id}')" style="font-size:10px; background: #555;">RESET</button>
-                            <button onclick="del('\${k._id}')" style="background:transparent; color:red; border:1px solid red; font-size:10px;">DELETE</button>
+                            <button onclick="act('/admin/reset', '\${k._id}')" style="font-size:10px;">RESET</button>
+                            <button onclick="del('\${k._id}')" style="background:none; color:red; border:1px solid red; font-size:10px;">DEL</button>
                         </td>
                     </tr>
                 \`).join('');
             }
             async function gen() {
-                const keyName = document.getElementById('k').value;
                 await fetch('/admin/add', {
                     method:'POST', headers:{'Content-Type':'application/json'}, 
-                    body:JSON.stringify({key: keyName, hours: document.getElementById('d').value})
+                    body:JSON.stringify({key: document.getElementById('k').value, hours: document.getElementById('d').value})
                 });
                 document.getElementById('k').value='';
                 load();
             }
             async function act(u, id) { await fetch(u, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) }); load(); }
-            async function del(id) { if(confirm("Are you sure?")) { await fetch('/admin/del/'+id, { method:'DELETE' }); load(); } }
+            async function del(id) { if(confirm("Delete?")) { await fetch('/admin/del/'+id, { method:'DELETE' }); load(); } }
         </script>
     </body>
     </html>
     `);
 });
 
-// Admin Control
+// ADMIN APIS
 app.get('/admin/list', async (req, res) => res.json(await Key.find().sort({createdAt: -1})));
 app.post('/admin/add', async (req, res) => {
     const { key, hours } = req.body;
     let exp = new Date();
     exp.setHours(exp.getHours() + parseInt(hours));
-    const finalKey = key || "WASIM-" + Math.random().toString(36).substr(2, 8).toUpperCase();
     await new Key({ 
-        key: finalKey, 
+        key: key || "KEY-" + Math.random().toString(36).substr(2, 8).toUpperCase(), 
         expiryDate: exp, 
         duration: hours >= 24 ? (hours/24) + " Day" : hours + " Hours" 
     }).save();
@@ -183,4 +176,4 @@ app.post('/admin/reset', async (req, res) => { await Key.findByIdAndUpdate(req.b
 app.delete('/admin/del/:id', async (req, res) => { await Key.findByIdAndDelete(req.params.id); res.json({ success: true }); });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, '0.0.0.0', () => console.log("🚀 Server is running on port " + PORT));
+app.listen(PORT, '0.0.0.0', () => console.log("🚀 Server Ready"));
