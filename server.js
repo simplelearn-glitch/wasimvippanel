@@ -6,10 +6,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 1. DATABASE CONNECTION
+// 1. DATABASE
 mongoose.connect(process.env.MONGO_URI).then(() => console.log("✅ DB Connected"));
 
-// 2. MODEL (Added Expiry Date)
+// 2. MODEL
 const Key = mongoose.model('Key', {
     key: String,
     hwid: { type: String, default: "NOT_SET" },
@@ -19,7 +19,7 @@ const Key = mongoose.model('Key', {
     createdAt: { type: Date, default: Date.now }
 });
 
-// 3. API FOR LOADER
+// 3. API ENDPOINT (Your Python script uses this)
 app.post('/connect', async (req, res) => {
     try {
         const { key, hwid } = req.body;
@@ -27,13 +27,8 @@ app.post('/connect', async (req, res) => {
 
         if (!foundKey) return res.status(404).json({ status: false, message: "INVALID_KEY" });
         if (foundKey.isBlocked) return res.status(403).json({ status: false, message: "BANNED" });
-        
-        // Check if expired
-        if (new Date() > foundKey.expiryDate) {
-            return res.status(403).json({ status: false, message: "KEY_EXPIRED" });
-        }
+        if (new Date() > foundKey.expiryDate) return res.status(403).json({ status: false, message: "EXPIRED" });
 
-        // HWID Logic
         if (foundKey.hwid === "NOT_SET") {
             foundKey.hwid = hwid;
             await foundKey.save();
@@ -41,164 +36,126 @@ app.post('/connect', async (req, res) => {
             return res.status(401).json({ status: false, message: "HWID_MISMATCH" });
         }
 
-        res.status(200).json({
-            status: true,
+        // Return the exact JSON structure the loader needs
+        res.status(200).json({ 
+            status: true, 
             data: {
-                mod: "WASIM VIP",
-                status: "SAFE",
+                mod: "WASIM VIP", 
+                status: "SAFE", 
                 expiry: foundKey.expiryDate.toISOString().replace('T', ' ').split('.')[0]
             }
         });
     } catch (e) { res.status(500).json({ status: false }); }
 });
 
-// 4. ADMIN ROUTES
-app.get('/admin/list', async (req, res) => res.json(await Key.find().sort({createdAt: -1})));
+app.get('/connect', (req, res) => res.json({ status: "Online" }));
 
-app.post('/admin/add', async (req, res) => {
-    const { key, hours } = req.body;
-    const finalKey = key || "WASIM-" + Math.random().toString(36).substr(2, 8).toUpperCase();
-    
-    // Calculate Expiry
-    let exp = new Date();
-    exp.setHours(exp.getHours() + parseInt(hours));
-
-    await new Key({ 
-        key: finalKey, 
-        expiryDate: exp, 
-        duration: hours >= 24 ? (hours/24) + " Day(s)" : hours + " Hour(s)" 
-    }).save();
-    res.json({ success: true });
-});
-
-app.post('/admin/reset', async (req, res) => {
-    await Key.findByIdAndUpdate(req.body.id, { hwid: "NOT_SET" });
-    res.json({ success: true });
-});
-
-app.delete('/admin/del/:id', async (req, res) => {
-    await Key.findByIdAndDelete(req.params.id);
-    res.json({ success: true });
-});
-
-// 5. RED/YELLOW/BLACK PROFESSIONAL UI
+// 4. PROFESSIONAL DASHBOARD (BLACK/RED/YELLOW)
 app.get('/', (req, res) => {
     res.send(`
     <!DOCTYPE html>
     <html>
     <head>
-        <title>WASIM VIP TERMINAL</title>
+        <title>WASIM TERMINAL</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
-            :root { --red: #ff3c3c; --yellow: #ffcc00; --bg: #0a0a0a; --card: #151515; }
-            body { background: var(--bg); color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; }
-            .sidebar { width: 260px; background: #000; height: 100vh; position: fixed; border-right: 2px solid var(--red); padding: 20px; }
-            .main { margin-left: 300px; padding: 40px; width: 100%; }
-            .card { background: var(--card); border-left: 4px solid var(--yellow); padding: 25px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-            h2, h3 { color: var(--red); text-transform: uppercase; letter-spacing: 2px; }
-            input, select { background: #000; border: 1px solid #333; color: var(--yellow); padding: 12px; border-radius: 5px; margin: 5px; }
-            button { background: var(--red); color: #fff; border: none; padding: 12px 25px; font-weight: bold; cursor: pointer; border-radius: 5px; transition: 0.3s; }
-            button:hover { background: var(--yellow); color: #000; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #111; }
-            th { text-align: left; padding: 15px; border-bottom: 2px solid var(--red); color: var(--yellow); font-size: 0.8rem; }
-            td { padding: 15px; border-bottom: 1px solid #222; font-size: 0.9rem; }
-            .btn-act { padding: 5px 10px; font-size: 10px; background: transparent; border: 1px solid #444; color: #aaa; cursor: pointer; margin-right: 5px; }
-            #login { position: fixed; inset: 0; background: #000; z-index: 999; display: flex; align-items: center; justify-content: center; border: 5px solid var(--red); }
+            :root { --red: #ff3131; --yellow: #ffde59; --bg: #000; }
+            body { background: #000; color: #fff; font-family: 'Arial', sans-serif; margin: 0; display: flex; }
+            .sidebar { width: 240px; background: #000; height: 100vh; position: fixed; border-right: 2px solid var(--red); padding: 20px; }
+            .main { margin-left: 270px; padding: 30px; width: 100%; }
+            .card { background: #111; border-left: 5px solid var(--red); padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+            input, select { background: #000; border: 1px solid #444; color: var(--yellow); padding: 12px; border-radius: 5px; margin: 5px; width: 180px; }
+            button { background: var(--red); color: #fff; border: none; padding: 12px 25px; font-weight: bold; cursor: pointer; border-radius: 5px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { text-align: left; padding: 15px; border-bottom: 2px solid var(--red); color: var(--yellow); }
+            td { padding: 15px; border-bottom: 1px solid #222; font-size: 0.8rem; }
+            #auth { position: fixed; inset: 0; background: #000; z-index: 999; display: flex; align-items: center; justify-content: center; }
         </style>
     </head>
     <body>
-        <div id="login">
-            <div class="card" style="text-align:center; width:350px;">
-                <h2>ADMIN ACCESS</h2>
-                <input type="password" id="ps" placeholder="SYSTEM PASSWORD" style="width:80%">
-                <button onclick="auth()" style="width:85%; margin-top:15px;">INITIALIZE</button>
+        <div id="auth">
+            <div class="card" style="text-align:center; width:300px; border-left: 5px solid var(--yellow);">
+                <h2 style="color:var(--red)">WASIM LOGIN</h2>
+                <input type="password" id="pw" placeholder="PASSWORD" style="width:80%">
+                <button onclick="login()" style="width:85%; margin-top:15px;">ENTER</button>
             </div>
         </div>
-
         <div class="sidebar">
-            <h2 style="color:var(--yellow)">WASIM MODS</h2>
-            <p style="color:var(--red)">● SERVER ONLINE</p>
-            <hr style="border-color:#222">
-            <p>DASHBOARD</p>
-            <p>USER LOGS</p>
-            <p>SECURITY</p>
+            <h2 style="color:var(--red)">WASIM VIP</h2>
+            <p style="color:var(--yellow)">● STATUS: ONLINE</p>
         </div>
-
         <div class="main">
             <div class="card">
-                <h3>Key Provisioning</h3>
-                <input type="text" id="mk" placeholder="Manual Key (Optional)">
-                <select id="dur">
-                    <option value="2">2 Hours</option>
-                    <option value="5">5 Hours</option>
-                    <option value="6">6 Hours</option>
-                    <option value="24">1 Day</option>
-                    <option value="168">7 Days</option>
-                    <option value="720">30 Days</option>
+                <h2 style="color:var(--yellow)">GENERATE LICENSE</h2>
+                <input type="text" id="k" placeholder="Manual Name">
+                <select id="d">
+                    <option value="2">2 Hours</option><option value="5">5 Hours</option>
+                    <option value="6">6 Hours</option><option value="24">1 Day</option>
+                    <option value="168">7 Days</option><option value="720">30 Days</option>
                     <option value="1440">60 Days</option>
                 </select>
-                <button onclick="gen()">CREATE LICENSE</button>
+                <button onclick="gen()">CREATE</button>
             </div>
-
             <div class="card" style="padding:0">
                 <table>
-                    <thead><tr><th>Key</th><th>Duration</th><th>HWID</th><th>Control</th></tr></thead>
-                    <tbody id="tbl"></tbody>
+                    <thead><tr><th>Key</th><th>Plan</th><th>HWID</th><th>Action</th></tr></thead>
+                    <tbody id="t"></tbody>
                 </table>
             </div>
         </div>
-
         <script>
-            function auth() {
-                if(document.getElementById('ps').value === 'wasim786') {
-                    document.getElementById('login').style.display='none';
+            function login() {
+                if(document.getElementById('pw').value === 'wasim786') {
+                    document.getElementById('auth').style.display='none';
                     load();
-                } else { alert("ACCESS DENIED"); }
+                } else { alert("WRONG"); }
             }
-
             async function load() {
                 const r = await fetch('/admin/list');
                 const data = await r.json();
-                document.getElementById('tbl').innerHTML = data.map(k => \`
+                document.getElementById('t').innerHTML = data.map(k => \`
                     <tr>
-                        <td style="color:var(--yellow); font-family:monospace">\${k.key}</td>
+                        <td style="color:var(--yellow)">\${k.key}</td>
                         <td>\${k.duration}</td>
-                        <td style="color:#666">\${k.hwid}</td>
+                        <td style="color:#888">\${k.hwid}</td>
                         <td>
-                            <button class="btn-act" onclick="act('/admin/reset', '\${k._id}')">RESET</button>
-                            <button class="btn-act" style="color:red" onclick="del('\${k._id}')">DEL</button>
+                            <button onclick="act('/admin/reset', '\${k._id}')" style="background:#222; color:#fff; border:1px solid #444; font-size:9px; cursor:pointer;">RESET</button>
+                            <button onclick="del('\${k._id}')" style="background:none; color:red; border:1px solid red; font-size:9px; cursor:pointer;">DEL</button>
                         </td>
                     </tr>
                 \`).join('');
             }
-
             async function gen() {
-                const m = document.getElementById('mk').value;
-                const h = document.getElementById('dur').value;
                 await fetch('/admin/add', {
-                    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({key:m, hours:h})
+                    method:'POST', headers:{'Content-Type':'application/json'}, 
+                    body:JSON.stringify({key: document.getElementById('k').value, hours: document.getElementById('d').value})
                 });
-                document.getElementById('mk').value='';
+                document.getElementById('k').value='';
                 load();
             }
-
-            async function act(url, id) {
-                await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) });
-                load();
-            }
-
-            async function del(id) {
-                if(confirm("Delete Key?")) {
-                    await fetch('/admin/del/'+id, { method:'DELETE' });
-                    load();
-                }
-            }
+            async function act(u, id) { await fetch(u, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) }); load(); }
+            async function del(id) { if(confirm("Delete?")) { await fetch('/admin/del/'+id, { method:'DELETE' }); load(); } }
         </script>
     </body>
     </html>
     `);
 });
 
+// 5. ADMIN BACKEND
+app.get('/admin/list', async (req, res) => res.json(await Key.find().sort({createdAt: -1})));
+app.post('/admin/add', async (req, res) => {
+    const { key, hours } = req.body;
+    let exp = new Date();
+    exp.setHours(exp.getHours() + parseInt(hours));
+    await new Key({ 
+        key: key || "WASIM-" + Math.random().toString(36).substr(2, 8).toUpperCase(), 
+        expiryDate: exp, 
+        duration: hours >= 24 ? (hours/24) + " Day" : hours + " Hours" 
+    }).save();
+    res.json({ success: true });
+});
+app.post('/admin/reset', async (req, res) => { await Key.findByIdAndUpdate(req.body.id, { hwid: "NOT_SET" }); res.json({ success: true }); });
+app.delete('/admin/del/:id', async (req, res) => { await Key.findByIdAndDelete(req.params.id); res.json({ success: true }); });
+
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => console.log("🚀 Server Live"));
-
