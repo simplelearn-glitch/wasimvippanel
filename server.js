@@ -6,10 +6,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 1. DATABASE
+// Force logging for every request
+app.use((req, res, next) => {
+    console.log(`[${new Date().toLocaleTimeString()}] incoming: ${req.method} ${req.url}`);
+    next();
+});
+
 mongoose.connect(process.env.MONGO_URI).then(() => console.log("✅ DB Connected"));
 
-// 2. MODEL
 const Key = mongoose.model('Key', {
     key: String,
     hwid: { type: String, default: "NOT_SET" },
@@ -19,10 +23,11 @@ const Key = mongoose.model('Key', {
     createdAt: { type: Date, default: Date.now }
 });
 
-// 3. LOGIN ENDPOINT (Universal support for /connect, /connec, etc.)
+// 1. LOGIN API (Universal support)
 app.post(['/connect*', '/conne*', '/api*'], async (req, res) => {
     try {
         const { key, hwid } = req.body;
+        console.log(`[*] Data -> Key: ${key}, HWID: ${hwid}`);
         const foundKey = await Key.findOne({ key: key });
 
         if (!foundKey) return res.status(404).json({ status: false, message: "INVALID_KEY" });
@@ -30,7 +35,7 @@ app.post(['/connect*', '/conne*', '/api*'], async (req, res) => {
         if (new Date() > foundKey.expiryDate) return res.status(403).json({ status: false, message: "EXPIRED" });
 
         if (foundKey.hwid === "NOT_SET") {
-            foundKey.hwid = hwid || "UNKNOWN_DEVICE";
+            foundKey.hwid = hwid || "UNKNOWN";
             await foundKey.save();
         } else if (foundKey.hwid !== hwid) {
             return res.status(401).json({ status: false, message: "HWID_MISMATCH" });
@@ -43,7 +48,7 @@ app.post(['/connect*', '/conne*', '/api*'], async (req, res) => {
     } catch (e) { res.status(500).json({ status: false }); }
 });
 
-// 4. ADMIN PANEL (Back to Normal)
+// 2. ADMIN PANEL UI
 app.get('/', (req, res) => {
     res.send(`
     <!DOCTYPE html>
@@ -132,7 +137,7 @@ app.get('/', (req, res) => {
     `);
 });
 
-// Admin Helpers
+// Admin API
 app.get('/admin/list', async (req, res) => res.json(await Key.find().sort({createdAt: -1})));
 app.post('/admin/add', async (req, res) => {
     const { key, hours } = req.body;
@@ -147,9 +152,6 @@ app.post('/admin/add', async (req, res) => {
 });
 app.post('/admin/reset', async (req, res) => { await Key.findByIdAndUpdate(req.body.id, { hwid: "NOT_SET" }); res.json({ success: true }); });
 app.delete('/admin/del/:id', async (req, res) => { await Key.findByIdAndDelete(req.params.id); res.json({ success: true }); });
-
-// Browser fallback
-app.get('/connect*', (req, res) => res.json({ status: "Online" }));
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => console.log("🚀 Server Ready"));
