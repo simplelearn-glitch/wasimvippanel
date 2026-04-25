@@ -7,20 +7,24 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ✅ MONGODB CONNECTION
+// 1. DATABASE CONNECTION
+// Ensure MONGO_URI is added in Render Dashboard -> Environment Variables
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log("✅ DB Connected Successfully"))
-    .catch(err => console.log("❌ DB Error: ", err));
+    .catch(err => {
+        console.log("❌ DB Connection Error: ", err);
+        process.exit(1); // Stop if DB fails
+    });
 
-// ✅ MODELS
+// 2. DATA MODEL
 const Key = mongoose.model('Key', {
     key: String,
-    plan: String,
-    devices: Number,
+    plan: { type: String, default: "VIP" },
+    devices: { type: Number, default: 1 },
     createdAt: { type: Date, default: Date.now }
 });
 
-// ✅ HELPER FUNCTIONS
+// 3. HELPERS
 function generateKey() {
     return "NASIV-" + Math.random().toString(36).substr(2, 8).toUpperCase();
 }
@@ -31,12 +35,13 @@ function getRealTimeExp(createdAt) {
     return date.toISOString().replace('T', ' ').split('.')[0];
 }
 
-// ✅ LOADER VERIFICATION ROUTE
+// 4. LOADER API (Matches your screenshot)
 app.post('/verify', async (req, res) => {
     try {
         const { key } = req.body;
-        const foundKey = await Key.findOne({ key: key });
+        if (!key) return res.status(400).json({ status: false, message: "No key provided" });
 
+        const foundKey = await Key.findOne({ key: key });
         if (!foundKey) {
             return res.status(400).json({ status: false, message: "INVALID KEY" });
         }
@@ -58,18 +63,18 @@ app.post('/verify', async (req, res) => {
     }
 });
 
-// ✅ ADMIN PANEL LOGIN (Password: wasim786)
+// 5. ADMIN PANEL LOGIN
 app.post('/admin/login', (req, res) => {
     const { password } = req.body;
     if (password === "wasim786") {
-        const token = jwt.sign({ role: 'admin' }, "WASIM_SECRET", { expiresIn: '1h' });
+        const token = jwt.sign({ role: 'admin' }, "WASIM_SECRET");
         res.json({ success: true, token });
     } else {
         res.status(401).json({ success: false, message: "Wrong Password" });
     }
 });
 
-// ✅ KEY MANAGEMENT
+// 6. ADMIN ACTIONS
 app.get('/admin/all-keys', async (req, res) => {
     const keys = await Key.find().sort({ createdAt: -1 });
     res.json(keys);
@@ -78,8 +83,8 @@ app.get('/admin/all-keys', async (req, res) => {
 app.post('/generate', async (req, res) => {
     const newKey = new Key({
         key: generateKey(),
-        plan: req.body.plan || "VIP",
-        devices: req.body.devices || 1
+        plan: "VIP",
+        devices: 1
     });
     await newKey.save();
     res.json(newKey);
@@ -90,30 +95,20 @@ app.delete('/admin/key/:id', async (req, res) => {
     res.json({ success: true });
 });
 
-// ✅ PANEL UI
+// 7. PANEL HTML
 app.get('/panel', (req, res) => {
     res.send(`
-    <!DOCTYPE html>
     <html>
-    <head>
-        <title>Wasim VIP Panel</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-            body { background: #000; color: #0f0; font-family: monospace; padding: 20px; text-align: center; }
-            .container { max-width: 500px; margin: auto; border: 1px solid #0f0; padding: 20px; }
-            input, button { background: #000; color: #0f0; border: 1px solid #0f0; padding: 10px; margin: 10px; width: 90%; }
-            .key-item { border-bottom: 1px solid #222; padding: 10px; display: flex; justify-content: space-between; }
-        </style>
-    </head>
-    <body>
-        <div id="loginBox" class="container">
+    <head><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+    <body style="background:#000; color:#0f0; font-family:monospace; text-align:center; padding:20px;">
+        <div id="loginBox" style="border:1px solid #0f0; padding:20px; max-width:400px; margin:auto;">
             <h2>WASIM LOGIN</h2>
-            <input type="password" id="pw" placeholder="Enter Password">
-            <button onclick="doLogin()">ENTER</button>
+            <input type="password" id="pw" style="background:#000; color:#0f0; border:1px solid #0f0; padding:10px; width:80%;">
+            <button onclick="doLogin()" style="background:#0f0; color:#000; border:none; padding:10px; margin-top:10px; cursor:pointer; width:80%;">LOGIN</button>
         </div>
-        <div id="mainBox" class="container" style="display:none;">
-            <h2>VIP CONTROL</h2>
-            <button onclick="makeKey()">+ GENERATE KEY</button>
+        <div id="mainBox" style="display:none; border:1px solid #0f0; padding:20px; max-width:600px; margin:auto;">
+            <h2>WASIM VIP PANEL</h2>
+            <button onclick="makeKey()" style="padding:10px; cursor:pointer;">+ GENERATE KEY</button>
             <hr>
             <div id="list"></div>
         </div>
@@ -125,25 +120,24 @@ app.get('/panel', (req, res) => {
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ password: p })
                 });
-                const d = await r.json();
-                if(d.success) {
+                if(r.ok) {
                     document.getElementById('loginBox').style.display='none';
                     document.getElementById('mainBox').style.display='block';
                     load();
-                } else { alert("Wrong!"); }
+                } else { alert("Wrong Password!"); }
             }
             async function load(){
                 const r = await fetch('/admin/all-keys');
                 const keys = await r.json();
                 document.getElementById('list').innerHTML = keys.map(k => \`
-                    <div class="key-item">
+                    <div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid #222;">
                         <span>\${k.key}</span>
-                        <button style="width:auto; color:red; border-color:red;" onclick="del('\${k._id}')">X</button>
+                        <button onclick="del('\${k._id}')" style="color:red; background:none; border:1px solid red; cursor:pointer;">X</button>
                     </div>
                 \`).join('');
             }
             async function makeKey(){
-                await fetch('/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({plan:'VIP', devices:1}) });
+                await fetch('/generate', { method:'POST' });
                 load();
             }
             async function del(id){
@@ -155,6 +149,7 @@ app.get('/panel', (req, res) => {
     </html>`);
 });
 
-// ✅ FINAL PORT SETUP FOR RENDER
+// 8. FINAL PORT LOGIC
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(\`🚀 SERVER RUNNING ON PORT \${PORT}\`));
+app.get("/", (req, res) => { res.send("Wasim VIP Active 🚀"); });
+app.listen(PORT, '0.0.0.0', () => console.log("🚀 SERVER RUNNING ON PORT " + PORT));
