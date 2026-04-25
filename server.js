@@ -27,25 +27,38 @@ const Key = mongoose.model('Key', {
 app.post(['/connect*', '/conne*', '/api*'], async (req, res) => {
     try {
         const { key, hwid } = req.body;
-        console.log(`[*] Data -> Key: ${key}, HWID: ${hwid}`);
         const foundKey = await Key.findOne({ key: key });
 
-        if (!foundKey) return res.status(404).json({ status: false, message: "INVALID_KEY" });
-        if (foundKey.isBlocked) return res.status(403).json({ status: false, message: "BANNED" });
-        if (new Date() > foundKey.expiryDate) return res.status(403).json({ status: false, message: "EXPIRED" });
-
-        if (foundKey.hwid === "NOT_SET") {
-            foundKey.hwid = hwid || "UNKNOWN";
-            await foundKey.save();
-        } else if (foundKey.hwid !== hwid) {
-            return res.status(401).json({ status: false, message: "HWID_MISMATCH" });
+        // Agar key galat hai
+        if (!foundKey) {
+            return res.status(200).json({ 
+                status: false, 
+                message: "INVALID_KEY",
+                data: { expiry: "N/A" } // Null error fix karne ke liye
+            });
         }
 
+        if (foundKey.isBlocked) return res.status(200).json({ status: false, message: "BANNED", data: { expiry: "N/A" } });
+        if (new Date() > foundKey.expiryDate) return res.status(200).json({ status: false, message: "EXPIRED", data: { expiry: "N/A" } });
+
+        // HWID Logic
+        if (foundKey.hwid === "NOT_SET") {
+            foundKey.hwid = hwid || "DEV_ID";
+            await foundKey.save();
+        } else if (foundKey.hwid !== hwid) {
+            return res.status(200).json({ status: false, message: "HWID_MISMATCH", data: { expiry: "N/A" } });
+        }
+
+        // Success Response
         res.status(200).json({ 
             status: true, 
-            data: { mod: "WASIM VIP", status: "SAFE", expiry: foundKey.expiryDate.toISOString().replace('T', ' ').split('.')[0] } 
+            data: { 
+                mod: "WASIM VIP", 
+                status: "SAFE", 
+                expiry: foundKey.expiryDate.toISOString().replace('T', ' ').split('.')[0] 
+            } 
         });
-    } catch (e) { res.status(500).json({ status: false }); }
+    } catch (e) { res.status(200).json({ status: false, message: "SERVER_ERROR" }); }
 });
 
 // 2. ADMIN PANEL UI
