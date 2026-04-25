@@ -7,12 +7,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 1. DATABASE CONNECTION (Using Render Environment Variable)
+// --- 1. DATABASE CONNECTION ---
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("✅ SYSTEM CONNECTED TO MONGODB"))
-    .catch((err) => console.log("❌ DB CONNECTION ERROR: ", err.message));
+    .then(() => console.log("✅ MONGO CONNECTED"))
+    .catch((err) => console.log("❌ DB ERROR: " + err.message));
 
-// 2. DATA MODELS
+// --- 2. DATA MODELS ---
 const Key = mongoose.model('Key', {
     key: String,
     hwid: { type: String, default: "NOT_SET" },
@@ -27,44 +27,15 @@ const Admin = mongoose.model('Admin', {
     password: { type: String }
 });
 
-// 3. API FOR LOADER (App Connect Logic)
-// Link to use in Lib: https://top11.onrender.com/login
-app.post('/login', async (req, res) => {
-    try {
-        const { key, hwid } = req.body;
-        const foundKey = await Key.findOne({ key: key });
-
-        if (!foundKey) return res.status(404).json({ status: false, msg: "INVALID_KEY" });
-        if (foundKey.isBlocked) return res.status(403).json({ status: false, msg: "USER_BANNED" });
-        if (new Date() > foundKey.expiryDate) return res.status(403).json({ status: false, msg: "KEY_EXPIRED" });
-
-        // HWID Locking Logic
-        if (foundKey.hwid === "NOT_SET") {
-            foundKey.hwid = hwid;
-            await foundKey.save();
-        } else if (foundKey.hwid !== hwid) {
-            return res.status(401).json({ status: false, msg: "HWID_MISMATCH" });
-        }
-
-        res.json({ 
-            status: true, 
-            msg: "SUCCESS",
-            data: {
-                expiry: foundKey.expiryDate.toISOString().split('T')[0],
-                identity: "WASIM_VIP_USER"
-            }
-        });
-    } catch (e) { res.status(500).json({ status: false }); }
-});
-
-// 4. PROFESSIONAL PINK UI
+// --- 3. UI DESIGN (CYBER-PINK LOOK) ---
 app.get('/', (req, res) => {
     res.send(`
     <!DOCTYPE html>
     <html lang="en">
     <head>
-        <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>TOP11 VIP TERMINAL</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>WASIM VIP PANEL</title>
         <style>
             :root { --pink: #ff007f; --bg: #050505; --card: #0d0d0d; --yellow: #ffde59; }
             body { background: var(--bg); color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; }
@@ -115,12 +86,12 @@ app.get('/', (req, res) => {
 
         <div class="main-container">
             <div class="balance-card">
-                <p style="color:#666; font-size:11px;">CREDITS AVAILABLE</p>
+                <p style="color:#666; font-size:11px;">UNLIMITED BALANCE</p>
                 <h1 style="color:var(--yellow); font-size:45px; margin:10px 0;">∞ 999,999,999</h1>
-                <div style="border:1px solid var(--pink); color:var(--pink); padding:4px 12px; border-radius:15px; font-size:10px;">SYSTEM: ACTIVE</div>
+                <div style="border:1px solid var(--pink); color:var(--pink); padding:4px 12px; border-radius:15px; font-size:10px;">WASIM OWNER</div>
             </div>
             <div style="background:var(--card); padding:20px; border-radius:15px;">
-                <h4 style="color:var(--pink); margin:0;">ACTIVE DATABASE RECORDS</h4>
+                <h4 style="color:var(--pink); margin:0;">ACTIVE KEYS</h4>
                 <div style="overflow-x:auto;">
                     <table>
                         <thead><tr><th>Key</th><th>Plan</th><th>Action</th></tr></thead>
@@ -131,15 +102,20 @@ app.get('/', (req, res) => {
         </div>
 
         <script>
+            // --- FIXED URL LOGIC ---
+            const API_BASE = "https://wasimvippanel.onrender.com";
+
             function toggleDrawer() { document.getElementById('drawer').classList.toggle('open'); }
+            
             function checkLogin() {
                 if(document.getElementById('master-pw').value === 'wasim786') {
                     document.getElementById('login-screen').style.display = 'none';
                     fetchData();
-                } else { alert("ACCESS DENIED"); }
+                } else { alert("WRONG PASSWORD"); }
             }
+
             async function fetchData() {
-                const res = await fetch('/admin/all-data');
+                const res = await fetch(API_BASE + '/admin/all-data');
                 const data = await res.json();
                 document.getElementById('key-list').innerHTML = data.map(k => \`
                     <tr>
@@ -149,23 +125,30 @@ app.get('/', (req, res) => {
                     </tr>
                 \`).join('');
             }
+
             async function genKey() {
-                await fetch('/admin/add-key', {
-                    method:'POST', headers:{'Content-Type':'application/json'},
-                    body:JSON.stringify({key: document.getElementById('key-name').value, hours: document.getElementById('key-time').value})
+                const kName = document.getElementById('key-name').value;
+                const kTime = document.getElementById('key-time').value;
+                const res = await fetch(API_BASE + '/admin/add-key', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({key: kName, hours: kTime})
                 });
-                alert("Key Generated!"); toggleDrawer(); fetchData();
+                if(res.ok) { alert("Key Generated!"); toggleDrawer(); fetchData(); }
             }
+
             async function addAdmin() {
-                await fetch('/admin/add-adm', {
-                    method:'POST', headers:{'Content-Type':'application/json'},
+                await fetch(API_BASE + '/admin/add-adm', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
                     body:JSON.stringify({u: document.getElementById('adm-u').value, p: document.getElementById('adm-p').value})
                 });
                 alert("Admin Created!"); toggleDrawer();
             }
+
             async function delKey(id) {
                 if(confirm("Delete?")) {
-                    await fetch('/admin/del-key/'+id, {method:'DELETE'});
+                    await fetch(API_BASE + '/admin/del-key/' + id, {method:'DELETE'});
                     fetchData();
                 }
             }
@@ -175,7 +158,7 @@ app.get('/', (req, res) => {
     `);
 });
 
-// 5. BACKEND ROUTES
+// --- 4. BACKEND ROUTES ---
 app.get('/admin/all-data', async (req, res) => {
     try {
         const keys = await Key.find().sort({createdAt:-1});
@@ -206,6 +189,21 @@ app.delete('/admin/del-key/:id', async (req, res) => {
     res.json({ success: true });
 });
 
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, '0.0.0.0', () => console.log("🚀 ALL-IN-ONE SYSTEM LIVE"));
+// LOADER LOGIN API
+app.post('/login', async (req, res) => {
+    const { key, hwid } = req.body;
+    const foundKey = await Key.findOne({ key: key });
+    if (!foundKey) return res.json({ status: false, msg: "INVALID_KEY" });
+    if (new Date() > foundKey.expiryDate) return res.json({ status: false, msg: "EXPIRED" });
+    
+    if (foundKey.hwid === "NOT_SET") {
+        foundKey.hwid = hwid;
+        await foundKey.save();
+    } else if (foundKey.hwid !== hwid) {
+        return res.json({ status: false, msg: "HWID_MISMATCH" });
+    }
+    res.json({ status: true, msg: "SUCCESS" });
+});
 
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, '0.0.0.0', () => console.log("🚀 Server Ready"));
