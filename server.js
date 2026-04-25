@@ -1,38 +1,39 @@
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
-const jwt = require('jsonwebtoken');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 // 1. DATABASE CONNECTION
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("✅ DB Connected Successfully"))
-    .catch(err => {
-        console.log("❌ DB Error: ", err);
-        process.exit(1);
-    });
+mongoose.connect(process.env.MONGO_URI).then(() => console.log("✅ DB Connected"));
 
-// 2. KEY DATA MODEL
+// 2. MODEL (Added Expiry Date)
 const Key = mongoose.model('Key', {
     key: String,
     hwid: { type: String, default: "NOT_SET" },
     isBlocked: { type: Boolean, default: false },
+    expiryDate: Date,
+    duration: String,
     createdAt: { type: Date, default: Date.now }
 });
 
-// 3. API ENDPOINT FOR LOADER (POST Connection)
+// 3. API FOR LOADER
 app.post('/connect', async (req, res) => {
     try {
         const { key, hwid } = req.body;
         const foundKey = await Key.findOne({ key: key });
 
         if (!foundKey) return res.status(404).json({ status: false, message: "INVALID_KEY" });
-        if (foundKey.isBlocked) return res.status(403).json({ status: false, message: "KEY_BANNED" });
+        if (foundKey.isBlocked) return res.status(403).json({ status: false, message: "BANNED" });
+        
+        // Check if expired
+        if (new Date() > foundKey.expiryDate) {
+            return res.status(403).json({ status: false, message: "KEY_EXPIRED" });
+        }
 
-        // HWID Locking Logic
+        // HWID Logic
         if (foundKey.hwid === "NOT_SET") {
             foundKey.hwid = hwid;
             await foundKey.save();
@@ -40,29 +41,33 @@ app.post('/connect', async (req, res) => {
             return res.status(401).json({ status: false, message: "HWID_MISMATCH" });
         }
 
-        // Success Response
-        const expDate = new Date(foundKey.createdAt);
-        expDate.setDate(expDate.getDate() + 30);
-
         res.status(200).json({
             status: true,
             data: {
-                mod_name: "WASIM VIP",
-                mod_status: "SAFE ✅",
-                token: foundKey.key,
-                expiry: expDate.toISOString().replace('T', ' ').split('.')[0],
-                rng: Math.floor(Math.random() * 999999)
+                mod: "WASIM VIP",
+                status: "SAFE",
+                expiry: foundKey.expiryDate.toISOString().replace('T', ' ').split('.')[0]
             }
         });
-    } catch (err) { res.status(500).json({ status: false }); }
+    } catch (e) { res.status(500).json({ status: false }); }
 });
 
-// 4. ADMIN DASHBOARD ACTIONS
+// 4. ADMIN ROUTES
 app.get('/admin/list', async (req, res) => res.json(await Key.find().sort({createdAt: -1})));
 
 app.post('/admin/add', async (req, res) => {
-    const k = req.body.key || "WASIM-" + Math.random().toString(36).substr(2, 8).toUpperCase();
-    await new Key({ key: k }).save();
+    const { key, hours } = req.body;
+    const finalKey = key || "WASIM-" + Math.random().toString(36).substr(2, 8).toUpperCase();
+    
+    // Calculate Expiry
+    let exp = new Date();
+    exp.setHours(exp.getHours() + parseInt(hours));
+
+    await new Key({ 
+        key: finalKey, 
+        expiryDate: exp, 
+        duration: hours >= 24 ? (hours/24) + " Day(s)" : hours + " Hour(s)" 
+    }).save();
     res.json({ success: true });
 });
 
@@ -71,109 +76,109 @@ app.post('/admin/reset', async (req, res) => {
     res.json({ success: true });
 });
 
-app.post('/admin/block', async (req, res) => {
-    const k = await Key.findById(req.body.id);
-    k.isBlocked = !k.isBlocked;
-    await k.save();
-    res.json({ success: true });
-});
-
 app.delete('/admin/del/:id', async (req, res) => {
     await Key.findByIdAndDelete(req.params.id);
     res.json({ success: true });
 });
 
-// 5. PROFESSIONAL DASHBOARD UI
+// 5. RED/YELLOW/BLACK PROFESSIONAL UI
 app.get('/', (req, res) => {
     res.send(`
     <!DOCTYPE html>
-    <html lang="en">
+    <html>
     <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Wasim VIP Admin</title>
+        <title>WASIM VIP TERMINAL</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
-            :root { --neon: #00ff88; --bg: #050505; --card: #111; }
-            body { background: var(--bg); color: #eee; font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; }
-            .sidebar { width: 250px; background: var(--card); height: 100vh; position: fixed; border-right: 1px solid #222; padding: 20px; }
-            .main { margin-left: 270px; padding: 40px; width: 100%; }
-            .card { background: var(--card); border: 1px solid #222; border-radius: 12px; padding: 25px; margin-bottom: 20px; }
-            .neon-text { color: var(--neon); text-shadow: 0 0 8px var(--neon); }
-            input, select, button { padding: 12px; border-radius: 8px; border: 1px solid #333; }
-            input { background: #000; color: #fff; width: 280px; margin-right: 10px; }
-            button { background: var(--neon); color: #000; font-weight: bold; cursor: pointer; border: none; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th { text-align: left; padding: 15px; border-bottom: 2px solid #222; font-size: 0.8rem; color: #555; }
-            td { padding: 15px; border-bottom: 1px solid #1a1a1a; font-size: 0.9rem; }
-            .btn-mini { padding: 5px 10px; font-size: 10px; background: #222; color: #fff; margin-right: 5px; cursor: pointer; border: 1px solid #444; }
-            #auth-wall { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center; }
+            :root { --red: #ff3c3c; --yellow: #ffcc00; --bg: #0a0a0a; --card: #151515; }
+            body { background: var(--bg); color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; }
+            .sidebar { width: 260px; background: #000; height: 100vh; position: fixed; border-right: 2px solid var(--red); padding: 20px; }
+            .main { margin-left: 300px; padding: 40px; width: 100%; }
+            .card { background: var(--card); border-left: 4px solid var(--yellow); padding: 25px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+            h2, h3 { color: var(--red); text-transform: uppercase; letter-spacing: 2px; }
+            input, select { background: #000; border: 1px solid #333; color: var(--yellow); padding: 12px; border-radius: 5px; margin: 5px; }
+            button { background: var(--red); color: #fff; border: none; padding: 12px 25px; font-weight: bold; cursor: pointer; border-radius: 5px; transition: 0.3s; }
+            button:hover { background: var(--yellow); color: #000; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #111; }
+            th { text-align: left; padding: 15px; border-bottom: 2px solid var(--red); color: var(--yellow); font-size: 0.8rem; }
+            td { padding: 15px; border-bottom: 1px solid #222; font-size: 0.9rem; }
+            .btn-act { padding: 5px 10px; font-size: 10px; background: transparent; border: 1px solid #444; color: #aaa; cursor: pointer; margin-right: 5px; }
+            #login { position: fixed; inset: 0; background: #000; z-index: 999; display: flex; align-items: center; justify-content: center; border: 5px solid var(--red); }
         </style>
     </head>
     <body>
-        <div id="auth-wall">
-            <div class="card" style="text-align:center; width: 320px;">
-                <h2 class="neon-text">WASIM TERMINAL</h2>
-                <input type="password" id="pass" placeholder="Enter Password" style="width: 85%; margin-bottom: 20px;">
-                <button onclick="login()" style="width: 85%;">LOGIN</button>
+        <div id="login">
+            <div class="card" style="text-align:center; width:350px;">
+                <h2>ADMIN ACCESS</h2>
+                <input type="password" id="ps" placeholder="SYSTEM PASSWORD" style="width:80%">
+                <button onclick="auth()" style="width:85%; margin-top:15px;">INITIALIZE</button>
             </div>
         </div>
 
         <div class="sidebar">
-            <h2 class="neon-text">WASIM MODS</h2>
-            <hr style="border:0; border-top:1px solid #222; margin: 20px 0;">
-            <p>💻 Dashboard</p>
-            <p>🔑 Keys Active</p>
-            <p>🛡️ Anti-Cheat</p>
-            <p>⚙️ Server v3.0</p>
+            <h2 style="color:var(--yellow)">WASIM MODS</h2>
+            <p style="color:var(--red)">● SERVER ONLINE</p>
+            <hr style="border-color:#222">
+            <p>DASHBOARD</p>
+            <p>USER LOGS</p>
+            <p>SECURITY</p>
         </div>
 
         <div class="main">
-            <h1 class="neon-text">Control Center</h1>
             <div class="card">
-                <h3>Provisioning</h3>
-                <input type="text" id="manual" placeholder="Custom Key Name (Optional)">
-                <button onclick="addKey()">+ CREATE KEY</button>
+                <h3>Key Provisioning</h3>
+                <input type="text" id="mk" placeholder="Manual Key (Optional)">
+                <select id="dur">
+                    <option value="2">2 Hours</option>
+                    <option value="5">5 Hours</option>
+                    <option value="6">6 Hours</option>
+                    <option value="24">1 Day</option>
+                    <option value="168">7 Days</option>
+                    <option value="720">30 Days</option>
+                    <option value="1440">60 Days</option>
+                </select>
+                <button onclick="gen()">CREATE LICENSE</button>
             </div>
 
             <div class="card" style="padding:0">
                 <table>
-                    <thead><tr><th>License Key</th><th>Hardware ID</th><th>Status</th><th>Control</th></tr></thead>
-                    <tbody id="list"></tbody>
+                    <thead><tr><th>Key</th><th>Duration</th><th>HWID</th><th>Control</th></tr></thead>
+                    <tbody id="tbl"></tbody>
                 </table>
             </div>
         </div>
 
         <script>
-            function login() {
-                if(document.getElementById('pass').value === 'wasim786') {
-                    document.getElementById('auth-wall').style.display='none';
+            function auth() {
+                if(document.getElementById('ps').value === 'wasim786') {
+                    document.getElementById('login').style.display='none';
                     load();
-                } else { alert('Access Denied'); }
+                } else { alert("ACCESS DENIED"); }
             }
 
             async function load() {
                 const r = await fetch('/admin/list');
                 const data = await r.json();
-                document.getElementById('list').innerHTML = data.map(k => \`
+                document.getElementById('tbl').innerHTML = data.map(k => \`
                     <tr>
-                        <td style="color:var(--neon); font-family:monospace;">\${k.key}</td>
-                        <td style="color:#666; font-size:0.8rem;">\${k.hwid}</td>
-                        <td style="color:\${k.isBlocked ? 'red' : 'green'}">\${k.isBlocked ? 'BANNED' : 'ACTIVE'}</td>
+                        <td style="color:var(--yellow); font-family:monospace">\${k.key}</td>
+                        <td>\${k.duration}</td>
+                        <td style="color:#666">\${k.hwid}</td>
                         <td>
-                            <button class="btn-mini" onclick="act('/admin/reset', '\${k._id}')">RESET HWID</button>
-                            <button class="btn-mini" onclick="act('/admin/block', '\${k._id}')">\${k.isBlocked ? 'UNBLOCK' : 'BLOCK'}</button>
-                            <button class="btn-mini" style="color:red" onclick="del('\${k._id}')">DEL</button>
+                            <button class="btn-act" onclick="act('/admin/reset', '\${k._id}')">RESET</button>
+                            <button class="btn-act" style="color:red" onclick="del('\${k._id}')">DEL</button>
                         </td>
                     </tr>
                 \`).join('');
             }
 
-            async function addKey() {
-                const val = document.getElementById('manual').value;
+            async function gen() {
+                const m = document.getElementById('mk').value;
+                const h = document.getElementById('dur').value;
                 await fetch('/admin/add', {
-                    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({key:val})
+                    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({key:m, hours:h})
                 });
-                document.getElementById('manual').value = '';
+                document.getElementById('mk').value='';
                 load();
             }
 
@@ -183,7 +188,7 @@ app.get('/', (req, res) => {
             }
 
             async function del(id) {
-                if(confirm("Confirm Delete?")) {
+                if(confirm("Delete Key?")) {
                     await fetch('/admin/del/'+id, { method:'DELETE' });
                     load();
                 }
@@ -194,7 +199,6 @@ app.get('/', (req, res) => {
     `);
 });
 
-// 6. SERVER START
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, '0.0.0.0', () => console.log("🚀 Wasim Server Live on " + PORT));
+app.listen(PORT, '0.0.0.0', () => console.log("🚀 Server Live"));
 
