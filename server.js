@@ -6,10 +6,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 1. DATABASE
-mongoose.connect(process.env.MONGO_URI).then(() => console.log("✅ DB Connected"));
+// 1. DATABASE CONNECTION
+mongoose.connect(process.env.MONGO_URI)
+    .then(() => console.log("✅ DB Connected"))
+    .catch(err => console.log("❌ DB Error: ", err));
 
-// 2. MODEL
+// 2. DATA MODEL
 const Key = mongoose.model('Key', {
     key: String,
     hwid: { type: String, default: "NOT_SET" },
@@ -19,7 +21,7 @@ const Key = mongoose.model('Key', {
     createdAt: { type: Date, default: Date.now }
 });
 
-// 3. API ENDPOINT (Supports /connect with any number of slashes)
+// 3. API ENDPOINT (Lamba URL support karne ke liye)
 app.post(['/connect', '/connect*'], async (req, res) => {
     try {
         const { key, hwid } = req.body;
@@ -29,6 +31,7 @@ app.post(['/connect', '/connect*'], async (req, res) => {
         if (foundKey.isBlocked) return res.status(403).json({ status: false, message: "BANNED" });
         if (new Date() > foundKey.expiryDate) return res.status(403).json({ status: false, message: "EXPIRED" });
 
+        // HWID SECURITY
         if (foundKey.hwid === "NOT_SET") {
             foundKey.hwid = hwid;
             await foundKey.save();
@@ -44,12 +47,14 @@ app.post(['/connect', '/connect*'], async (req, res) => {
                 expiry: foundKey.expiryDate.toISOString().replace('T', ' ').split('.')[0]
             }
         });
-    } catch (e) { res.status(500).json({ status: false }); }
+    } catch (e) { 
+        res.status(500).json({ status: false }); 
+    }
 });
 
 app.get('/connect*', (req, res) => res.json({ status: "Online" }));
 
-// 4. DASHBOARD UI
+// 4. ADMIN PANEL UI
 app.get('/', (req, res) => {
     res.send(`
     <!DOCTYPE html>
@@ -88,8 +93,10 @@ app.get('/', (req, res) => {
                 <h2 style="color:var(--yellow)">GENERATE LICENSE</h2>
                 <input type="text" id="k" placeholder="Key Name">
                 <select id="d">
-                    <option value="2">2 Hours</option><option value="5">5 Hours</option>
-                    <option value="24">1 Day</option><option value="168">7 Days</option>
+                    <option value="2">2 Hours</option>
+                    <option value="5">5 Hours</option>
+                    <option value="24">1 Day</option>
+                    <option value="168">7 Days</option>
                     <option value="720">30 Days</option>
                 </select>
                 <button onclick="gen()">CREATE</button>
@@ -131,15 +138,28 @@ app.get('/', (req, res) => {
                 document.getElementById('k').value='';
                 load();
             }
-            async function act(u, id) { await fetch(u, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) }); load(); }
-            async function del(id) { if(confirm("Delete?")) { await fetch('/admin/del/'+id, { method:'DELETE' }); load(); } }
+            async function act(u, id) { 
+                await fetch(u, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) }); 
+                load(); 
+            }
+            async function del(id) { 
+                if(confirm("Delete?")) { 
+                    await fetch('/admin/del/'+id, { method:'DELETE' }); 
+                    load(); 
+                } 
+            }
         </script>
     </body>
     </html>
     `);
 });
 
-app.get('/admin/list', async (req, res) => res.json(await Key.find().sort({createdAt: -1})));
+// Admin API
+app.get('/admin/list', async (req, res) => {
+    const keys = await Key.find().sort({createdAt: -1});
+    res.json(keys);
+});
+
 app.post('/admin/add', async (req, res) => {
     const { key, hours } = req.body;
     let exp = new Date();
@@ -151,65 +171,16 @@ app.post('/admin/add', async (req, res) => {
     }).save();
     res.json({ success: true });
 });
-app.post('/admin/reset', async (req, res) => { await Key.findByIdAndUpdate(req.body.id, { hwid: "NOT_SET" }); res.json({ success: true }); });
-app.delete('/admin/del/:id', async (req, res) => { await Key.findByIdAndDelete(req.params.id); res.json({ success: true }); });
 
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, '0.0.0.0', () => console.log("🚀 Server Ready"));
-        </div>
-        <script>
-            function login() {
-                if(document.getElementById('pw').value === 'wasim786') {
-                    document.getElementById('auth').style.display='none';
-                    load();
-                } else { alert("WRONG"); }
-            }
-            async function load() {
-                const r = await fetch('/admin/list');
-                const data = await r.json();
-                document.getElementById('t').innerHTML = data.map(k => \`
-                    <tr>
-                        <td style="color:var(--yellow)">\${k.key}</td>
-                        <td>\${k.duration}</td>
-                        <td style="color:#888">\${k.hwid}</td>
-                        <td>
-                            <button onclick="act('/admin/reset', '\${k._id}')" style="background:#222; color:#fff; border:1px solid #444; font-size:9px; cursor:pointer;">RESET</button>
-                            <button onclick="del('\${k._id}')" style="background:none; color:red; border:1px solid red; font-size:9px; cursor:pointer;">DEL</button>
-                        </td>
-                    </tr>
-                \`).join('');
-            }
-            async function gen() {
-                await fetch('/admin/add', {
-                    method:'POST', headers:{'Content-Type':'application/json'}, 
-                    body:JSON.stringify({key: document.getElementById('k').value, hours: document.getElementById('d').value})
-                });
-                document.getElementById('k').value='';
-                load();
-            }
-            async function act(u, id) { await fetch(u, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) }); load(); }
-            async function del(id) { if(confirm("Delete?")) { await fetch('/admin/del/'+id, { method:'DELETE' }); load(); } }
-        </script>
-    </body>
-    </html>
-    `);
-});
-
-// 5. ADMIN BACKEND
-app.get('/admin/list', async (req, res) => res.json(await Key.find().sort({createdAt: -1})));
-app.post('/admin/add', async (req, res) => {
-    const { key, hours } = req.body;
-    let exp = new Date();
-    exp.setHours(exp.getHours() + parseInt(hours));
-    await new Key({ 
-        key: key || "WASIM-" + Math.random().toString(36).substr(2, 8).toUpperCase(), 
-        expiryDate: exp, 
-        duration: hours >= 24 ? (hours/24) + " Day" : hours + " Hours" 
-    }).save();
+app.post('/admin/reset', async (req, res) => {
+    await Key.findByIdAndUpdate(req.body.id, { hwid: "NOT_SET" });
     res.json({ success: true });
 });
-app.post('/admin/reset', async (req, res) => { await Key.findByIdAndUpdate(req.body.id, { hwid: "NOT_SET" }); res.json({ success: true }); });
-app.delete('/admin/del/:id', async (req, res) => { await Key.findByIdAndDelete(req.params.id); res.json({ success: true }); });
+
+app.delete('/admin/del/:id', async (req, res) => {
+    await Key.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+});
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, '0.0.0.0', () => console.log("🚀 Server Live"));
+app.listen(PORT, '0.0.0.0', () => console.log("🚀 Server Ready on Port 10000"));
