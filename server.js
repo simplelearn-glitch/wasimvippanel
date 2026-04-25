@@ -219,14 +219,45 @@ app.get('/admin/all-data', async (req, res) => {
     res.json(keys);
 });
 
-app.post('/admin/add-key', async (req, res) => {
-    const { key, hours } = req.body;
-    let exp = new Date(); exp.setHours(exp.getHours() + parseInt(hours));
-    const newK = new Key({
-        key: key || "VIP-" + crypto.randomBytes(3).toString('hex').toUpperCase(),
-        expiryDate: exp, duration: hours + "H", isBlocked: false
-    });
-    await newK.save(); res.json({ success: true });
+// --- 5. APP VERIFICATION ROUTE (FOR APK) ---
+app.post('/api/verify', async (req, res) => {
+    const { key, hwid } = req.body;
+
+    try {
+        // Find the key in MongoDB
+        const foundKey = await Key.findOne({ key: key });
+
+        if (!foundKey) {
+            return res.json({ status: "failed", message: "INVALID LICENSE KEY" });
+        }
+
+        if (foundKey.isBlocked) {
+            return res.json({ status: "failed", message: "YOUR KEY IS BLOCKED" });
+        }
+
+        // Check if Key is Expired
+        if (new Date() > foundKey.expiryDate) {
+            return res.json({ status: "failed", message: "KEY HAS EXPIRED" });
+        }
+
+        // HWID Locking Logic
+        if (foundKey.hwid === "NOT_SET") {
+            // First time login: Link this key to this device
+            foundKey.hwid = hwid;
+            await foundKey.save();
+            return res.json({ status: "success", message: "DEVICE ACTIVATED!" });
+        } else if (foundKey.hwid !== hwid) {
+            // Key is being used on a different device
+            return res.json({ status: "failed", message: "HWID MISMATCH: KEY USED ON ANOTHER DEVICE" });
+        }
+
+        // If everything is correct
+        res.json({ status: "success", message: "WELCOME BACK VIP" });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ status: "error", message: "SERVER DATABASE ERROR" });
+    }
 });
 
 app.post('/admin/block-key', async (req, res) => {
