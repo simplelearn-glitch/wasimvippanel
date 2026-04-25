@@ -24,6 +24,7 @@ const Key = mongoose.model('Key', {
 });
 
 // 1. LOGIN API (Universal support)
+// Is hisse ko apne server.js mein replace kar dein
 app.post(['/connect*', '/conne*', '/api*'], async (req, res) => {
     try {
         const { key, hwid } = req.body;
@@ -60,6 +61,7 @@ app.post(['/connect*', '/conne*', '/api*'], async (req, res) => {
         });
     } catch (e) { res.status(200).json({ status: false, message: "SERVER_ERROR" }); }
 });
+
 
 // 2. ADMIN PANEL UI
 app.get('/', (req, res) => {
