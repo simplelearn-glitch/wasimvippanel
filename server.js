@@ -9,7 +9,7 @@ app.use(express.json());
 
 // --- 1. DATABASE CONNECTION ---
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("✅ MONGO CONNECTED"))
+    .then(() => console.log("✅ MONGO DB CONNECTED"))
     .catch((err) => console.log("❌ DB ERROR: " + err.message));
 
 // --- 2. DATA MODELS ---
@@ -27,7 +27,7 @@ const Admin = mongoose.model('Admin', {
     password: { type: String }
 });
 
-// --- 3. UI DESIGN (CYBER-PINK LOOK) ---
+// --- 3. UI DESIGN (NEON MULTI-COLOR PROFESSIONAL) ---
 app.get('/', (req, res) => {
     res.send(`
     <!DOCTYPE html>
@@ -35,175 +35,46 @@ app.get('/', (req, res) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>WASIM VIP PANEL</title>
+        <title>WASIM ULTIMATE TERMINAL</title>
         <style>
-            :root { --pink: #ff007f; --bg: #050505; --card: #0d0d0d; --yellow: #ffde59; }
-            body { background: var(--bg); color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; }
-            #login-screen { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 2000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(15px); }
-            .login-card { background: var(--card); padding: 40px; border: 1px solid var(--pink); border-radius: 15px; width: 300px; text-align: center; }
-            nav { background: rgba(13, 13, 13, 0.9); padding: 15px 25px; border-bottom: 1px solid var(--pink); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
-            .logo { font-size: 1.4rem; font-weight: 800; color: var(--pink); text-shadow: 0 0 10px var(--pink); }
-            #drawer { position: fixed; right: -100%; top: 0; width: 300px; height: 100vh; background: #080808; z-index: 150; transition: 0.4s; padding: 30px; border-left: 2px solid var(--pink); box-sizing: border-box; }
-            #drawer.open { right: 0; }
-            .main-container { padding: 25px; max-width: 800px; margin: auto; }
-            .balance-card { background: linear-gradient(135deg, #0d0d0d, #1a000d); border: 1px solid #222; padding: 30px; border-radius: 20px; text-align: center; margin-bottom: 25px; border-bottom: 4px solid var(--pink); }
-            input, select { background: #000; border: 1px solid #333; color: var(--pink); padding: 14px; margin: 10px 0; width: 100%; border-radius: 10px; outline: none; box-sizing: border-box; }
-            button { background: var(--pink); color: #fff; border: none; padding: 14px; font-weight: bold; border-radius: 10px; cursor: pointer; width: 100%; margin-top: 15px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-            th { text-align: left; color: #555; font-size: 11px; padding: 10px; border-bottom: 1px solid #222; }
-            td { padding: 12px 10px; border-bottom: 1px solid #111; font-size: 14px; }
-        </style>
-    </head>
-    <body>
-        <div id="login-screen">
-            <div class="login-card">
-                <h2 style="color:var(--pink)">WASIM ACCESS</h2>
-                <input type="password" id="master-pw" placeholder="PASSWORD">
-                <button onclick="checkLogin()">INITIALIZE SYSTEM</button>
-            </div>
-        </div>
-
-        <nav>
-            <div class="logo">TOP11<span style="color:#fff">VIP</span></div>
-            <button onclick="toggleDrawer()" style="background:var(--pink); color:#fff; border:none; padding:8px 15px; border-radius:5px; cursor:pointer;">MENU ☰</button>
-        </nav>
-
-        <div id="drawer">
-            <span onclick="toggleDrawer()" style="color:var(--pink); font-size:30px; cursor:pointer; float:right;">×</span>
-            <h3 style="color:var(--pink); margin-top:50px;">PANEL CONTROL</h3>
-            <input type="text" id="adm-u" placeholder="Admin User">
-            <input type="text" id="adm-p" placeholder="Admin Pass">
-            <button onclick="addAdmin()" style="background:#fff; color:#000;">ADD ADMIN</button>
-            <hr style="margin:20px 0; border:#222 1px solid;">
-            <input type="text" id="key-name" placeholder="License Name">
-            <select id="key-time">
-                <option value="2">2 Hours</option>
-                <option value="24">1 Day</option>
-                <option value="168">7 Days</option>
-            </select>
-            <button onclick="genKey()">CREATE KEY</button>
-        </div>
-
-        <div class="main-container">
-            <div class="balance-card">
-                <p style="color:#666; font-size:11px;">UNLIMITED BALANCE</p>
-                <h1 style="color:var(--yellow); font-size:45px; margin:10px 0;">∞ 999,999,999</h1>
-                <div style="border:1px solid var(--pink); color:var(--pink); padding:4px 12px; border-radius:15px; font-size:10px;">WASIM OWNER</div>
-            </div>
-            <div style="background:var(--card); padding:20px; border-radius:15px;">
-                <h4 style="color:var(--pink); margin:0;">ACTIVE KEYS</h4>
-                <div style="overflow-x:auto;">
-                    <table>
-                        <thead><tr><th>Key</th><th>Plan</th><th>Action</th></tr></thead>
-                        <tbody id="key-list"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <script>
-            // --- FIXED URL LOGIC ---
-            const API_BASE = "https://wasimvippanel.onrender.com";
-
-            function toggleDrawer() { document.getElementById('drawer').classList.toggle('open'); }
+            :root { 
+                --pink: #ff007f; 
+                --cyan: #00f2ff; 
+                --purple: #bc13fe;
+                --yellow: #ffde59;
+                --bg: #020202; 
+                --card: rgba(20, 20, 20, 0.8); 
+            }
+            body { background: var(--bg); color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; overflow-x: hidden; }
             
-            function checkLogin() {
-                if(document.getElementById('master-pw').value === 'wasim786') {
-                    document.getElementById('login-screen').style.display = 'none';
-                    fetchData();
-                } else { alert("WRONG PASSWORD"); }
-            }
+            /* Colorful Background Glow */
+            body::before { content: ""; position: fixed; top: -10%; left: -10%; width: 40%; height: 40%; background: radial-gradient(circle, rgba(255, 0, 127, 0.15), transparent); z-index: -1; }
+            body::after { content: ""; position: fixed; bottom: -10%; right: -10%; width: 40%; height: 40%; background: radial-gradient(circle, rgba(0, 242, 255, 0.1), transparent); z-index: -1; }
 
-            async function fetchData() {
-                const res = await fetch(API_BASE + '/admin/all-data');
-                const data = await res.json();
-                document.getElementById('key-list').innerHTML = data.map(k => \`
-                    <tr>
-                        <td style="color:var(--pink); font-weight:bold;">\${k.key}</td>
-                        <td>\${k.duration}</td>
-                        <td><button onclick="delKey('\${k._id}')" style="background:none; color:red; border:none; cursor:pointer;">[DEL]</button></td>
-                    </tr>
-                \`).join('');
-            }
+            #login-screen { position: fixed; inset: 0; background: rgba(0,0,0,0.98); z-index: 2000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(20px); }
+            .login-card { background: var(--card); padding: 40px; border: 1px solid var(--pink); border-radius: 20px; width: 320px; text-align: center; box-shadow: 0 0 40px rgba(255, 0, 127, 0.2); }
+            
+            nav { background: rgba(0, 0, 0, 0.9); padding: 15px 30px; border-bottom: 2px solid var(--pink); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
+            .logo { font-size: 1.6rem; font-weight: 900; background: linear-gradient(to right, var(--pink), var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 10px rgba(255,0,127,0.3); }
+            
+            .menu-btn { background: linear-gradient(45deg, var(--pink), var(--purple)); color: #fff; border: none; padding: 10px 20px; border-radius: 12px; cursor: pointer; font-weight: bold; box-shadow: 0 0 15px var(--pink); }
 
-            async function genKey() {
-                const kName = document.getElementById('key-name').value;
-                const kTime = document.getElementById('key-time').value;
-                const res = await fetch(API_BASE + '/admin/add-key', {
-                    method:'POST',
-                    headers:{'Content-Type':'application/json'},
-                    body:JSON.stringify({key: kName, hours: kTime})
-                });
-                if(res.ok) { alert("Key Generated!"); toggleDrawer(); fetchData(); }
-            }
+            #drawer { position: fixed; right: -100%; top: 0; width: 320px; height: 100vh; background: rgba(10, 10, 10, 0.95); z-index: 150; transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1); padding: 35px; border-left: 2px solid var(--cyan); backdrop-filter: blur(15px); box-sizing: border-box; }
+            #drawer.open { right: 0; }
+            .close-x { color: var(--cyan); font-size: 40px; cursor: pointer; float: right; }
 
-            async function addAdmin() {
-                await fetch(API_BASE + '/admin/add-adm', {
-                    method:'POST',
-                    headers:{'Content-Type':'application/json'},
-                    body:JSON.stringify({u: document.getElementById('adm-u').value, p: document.getElementById('adm-p').value})
-                });
-                alert("Admin Created!"); toggleDrawer();
-            }
+            .main-container { padding: 30px; max-width: 900px; margin: auto; }
+            .balance-card { background: var(--card); border: 1px solid #333; padding: 35px; border-radius: 25px; text-align: center; margin-bottom: 30px; position: relative; overflow: hidden; border-top: 4px solid var(--cyan); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+            
+            input, select { background: #000; border: 1px solid #333; color: var(--cyan); padding: 15px; margin: 12px 0; width: 100%; border-radius: 12px; outline: none; box-sizing: border-box; font-weight: bold; }
+            input:focus { border-color: var(--pink); box-shadow: 0 0 10px var(--pink); }
+            
+            button.create-btn { background: linear-gradient(45deg, var(--cyan), var(--purple)); color: #fff; border: none; padding: 15px; font-weight: bold; border-radius: 12px; cursor: pointer; width: 100%; margin-top: 10px; }
+            
+            .table-card { background: var(--card); border-radius: 20px; padding: 25px; border: 1px solid #222; backdrop-filter: blur(5px); }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { text-align: left; color: #777; font-size: 12px; text-transform: uppercase; padding: 12px; border-bottom: 1px solid #333; }
+            td { padding: 15px 12px; border-bottom: 1px solid #1a1a1a; font-size: 14px; }
+            .key-glow { color: var(--yellow); font-weight: bold; font-family: monospace; text-shadow: 0 0 5px var(--yellow); }
+            .del-icon
 
-            async function delKey(id) {
-                if(confirm("Delete?")) {
-                    await fetch(API_BASE + '/admin/del-key/' + id, {method:'DELETE'});
-                    fetchData();
-                }
-            }
-        </script>
-    </body>
-    </html>
-    `);
-});
-
-// --- 4. BACKEND ROUTES ---
-app.get('/admin/all-data', async (req, res) => {
-    try {
-        const keys = await Key.find().sort({createdAt:-1});
-        res.json(keys);
-    } catch(e) { res.status(500).json([]); }
-});
-
-app.post('/admin/add-key', async (req, res) => {
-    const { key, hours } = req.body;
-    let exp = new Date();
-    exp.setHours(exp.getHours() + parseInt(hours));
-    const newK = new Key({
-        key: key || "VIP-" + crypto.randomBytes(3).toString('hex').toUpperCase(),
-        expiryDate: exp,
-        duration: hours + "H"
-    });
-    await newK.save();
-    res.json({ success: true });
-});
-
-app.post('/admin/add-adm', async (req, res) => {
-    await new Admin({ username: req.body.u, password: req.body.p }).save();
-    res.json({ success: true });
-});
-
-app.delete('/admin/del-key/:id', async (req, res) => {
-    await Key.findByIdAndDelete(req.params.id);
-    res.json({ success: true });
-});
-
-// LOADER LOGIN API
-app.post('/login', async (req, res) => {
-    const { key, hwid } = req.body;
-    const foundKey = await Key.findOne({ key: key });
-    if (!foundKey) return res.json({ status: false, msg: "INVALID_KEY" });
-    if (new Date() > foundKey.expiryDate) return res.json({ status: false, msg: "EXPIRED" });
-    
-    if (foundKey.hwid === "NOT_SET") {
-        foundKey.hwid = hwid;
-        await foundKey.save();
-    } else if (foundKey.hwid !== hwid) {
-        return res.json({ status: false, msg: "HWID_MISMATCH" });
-    }
-    res.json({ status: true, msg: "SUCCESS" });
-});
-
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, '0.0.0.0', () => console.log("🚀 Server Ready"));
