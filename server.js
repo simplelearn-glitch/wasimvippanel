@@ -6,12 +6,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 1. DATABASE CONNECTION
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("✅ DB Connected"))
-    .catch(err => console.log("❌ DB Error: ", err));
+// 1. DATABASE
+mongoose.connect(process.env.MONGO_URI).then(() => console.log("✅ DB Connected"));
 
-// 2. DATA MODEL
+// 2. MODEL
 const Key = mongoose.model('Key', {
     key: String,
     hwid: { type: String, default: "NOT_SET" },
@@ -21,8 +19,9 @@ const Key = mongoose.model('Key', {
     createdAt: { type: Date, default: Date.now }
 });
 
-// 3. API ENDPOINT (Lamba URL support karne ke liye)
-app.post(['/connect', '/connect*'], async (req, res) => {
+// 3. API ENDPOINT (FIXED FOR PARTIAL URLS)
+// Agar loader '/connec' ya '/conne' bhi bhejta hai, toh ye kaam karega
+app.post(['/connect', '/connec', '/conne', '/connect*'], async (req, res) => {
     try {
         const { key, hwid } = req.body;
         const foundKey = await Key.findOne({ key: key });
@@ -31,7 +30,6 @@ app.post(['/connect', '/connect*'], async (req, res) => {
         if (foundKey.isBlocked) return res.status(403).json({ status: false, message: "BANNED" });
         if (new Date() > foundKey.expiryDate) return res.status(403).json({ status: false, message: "EXPIRED" });
 
-        // HWID SECURITY
         if (foundKey.hwid === "NOT_SET") {
             foundKey.hwid = hwid;
             await foundKey.save();
@@ -47,14 +45,12 @@ app.post(['/connect', '/connect*'], async (req, res) => {
                 expiry: foundKey.expiryDate.toISOString().replace('T', ' ').split('.')[0]
             }
         });
-    } catch (e) { 
-        res.status(500).json({ status: false }); 
-    }
+    } catch (e) { res.status(500).json({ status: false }); }
 });
 
 app.get('/connect*', (req, res) => res.json({ status: "Online" }));
 
-// 4. ADMIN PANEL UI
+// 4. DASHBOARD
 app.get('/', (req, res) => {
     res.send(`
     <!DOCTYPE html>
@@ -93,11 +89,8 @@ app.get('/', (req, res) => {
                 <h2 style="color:var(--yellow)">GENERATE LICENSE</h2>
                 <input type="text" id="k" placeholder="Key Name">
                 <select id="d">
-                    <option value="2">2 Hours</option>
-                    <option value="5">5 Hours</option>
-                    <option value="24">1 Day</option>
-                    <option value="168">7 Days</option>
-                    <option value="720">30 Days</option>
+                    <option value="2">2 Hours</option><option value="24">1 Day</option>
+                    <option value="168">7 Days</option><option value="720">30 Days</option>
                 </select>
                 <button onclick="gen()">CREATE</button>
             </div>
@@ -138,28 +131,15 @@ app.get('/', (req, res) => {
                 document.getElementById('k').value='';
                 load();
             }
-            async function act(u, id) { 
-                await fetch(u, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) }); 
-                load(); 
-            }
-            async function del(id) { 
-                if(confirm("Delete?")) { 
-                    await fetch('/admin/del/'+id, { method:'DELETE' }); 
-                    load(); 
-                } 
-            }
+            async function act(u, id) { await fetch(u, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) }); load(); }
+            async function del(id) { if(confirm("Delete?")) { await fetch('/admin/del/'+id, { method:'DELETE' }); load(); } }
         </script>
     </body>
     </html>
     `);
 });
 
-// Admin API
-app.get('/admin/list', async (req, res) => {
-    const keys = await Key.find().sort({createdAt: -1});
-    res.json(keys);
-});
-
+app.get('/admin/list', async (req, res) => res.json(await Key.find().sort({createdAt: -1})));
 app.post('/admin/add', async (req, res) => {
     const { key, hours } = req.body;
     let exp = new Date();
@@ -171,16 +151,8 @@ app.post('/admin/add', async (req, res) => {
     }).save();
     res.json({ success: true });
 });
-
-app.post('/admin/reset', async (req, res) => {
-    await Key.findByIdAndUpdate(req.body.id, { hwid: "NOT_SET" });
-    res.json({ success: true });
-});
-
-app.delete('/admin/del/:id', async (req, res) => {
-    await Key.findByIdAndDelete(req.params.id);
-    res.json({ success: true });
-});
+app.post('/admin/reset', async (req, res) => { await Key.findByIdAndUpdate(req.body.id, { hwid: "NOT_SET" }); res.json({ success: true }); });
+app.delete('/admin/del/:id', async (req, res) => { await Key.findByIdAndDelete(req.params.id); res.json({ success: true }); });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, '0.0.0.0', () => console.log("🚀 Server Ready on Port 10000"));
+app.listen(PORT, '0.0.0.0', () => console.log("🚀 Server Ready"));
