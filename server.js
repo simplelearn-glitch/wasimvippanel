@@ -6,14 +6,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Force logging for every request
-app.use((req, res, next) => {
-    console.log(`[${new Date().toLocaleTimeString()}] incoming: ${req.method} ${req.url}`);
-    next();
-});
+// 1. DATABASE CONNECTION
+mongoose.connect(process.env.MONGO_URI).then(() => console.log("✅ Database Connected"));
 
-mongoose.connect(process.env.MONGO_URI).then(() => console.log("✅ DB Connected"));
-
+// 2. DATA MODEL
 const Key = mongoose.model('Key', {
     key: String,
     hwid: { type: String, default: "NOT_SET" },
@@ -23,47 +19,42 @@ const Key = mongoose.model('Key', {
     createdAt: { type: Date, default: Date.now }
 });
 
-// 1. LOGIN API (Universal support)
-// Is hisse ko apne server.js mein replace kar dein
+// 3. LOGIN API (Specially for GameZone Loader)
 app.post(['/connect*', '/conne*', '/api*'], async (req, res) => {
     try {
         const { key, hwid } = req.body;
         const foundKey = await Key.findOne({ key: key });
 
-        // Agar key galat hai
-        if (!foundKey) {
-            return res.status(200).json({ 
-                status: false, 
-                message: "INVALID_KEY",
-                data: { expiry: "N/A" } // Null error fix karne ke liye
-            });
-        }
+        // Error Responses
+        if (!foundKey) return res.status(200).json({ status: false, message: "INVALID_KEY", expiry: "N/A" });
+        if (foundKey.isBlocked) return res.status(200).json({ status: false, message: "USER_BANNED", expiry: "N/A" });
+        if (new Date() > foundKey.expiryDate) return res.status(200).json({ status: false, message: "KEY_EXPIRED", expiry: "N/A" });
 
-        if (foundKey.isBlocked) return res.status(200).json({ status: false, message: "BANNED", data: { expiry: "N/A" } });
-        if (new Date() > foundKey.expiryDate) return res.status(200).json({ status: false, message: "EXPIRED", data: { expiry: "N/A" } });
-
-        // HWID Logic
+        // HWID SECURITY
         if (foundKey.hwid === "NOT_SET") {
-            foundKey.hwid = hwid || "DEV_ID";
+            foundKey.hwid = hwid || "UNKNOWN";
             await foundKey.save();
         } else if (foundKey.hwid !== hwid) {
-            return res.status(200).json({ status: false, message: "HWID_MISMATCH", data: { expiry: "N/A" } });
+            return res.status(200).json({ status: false, message: "HWID_MISMATCH", expiry: "N/A" });
         }
 
-        // Success Response
+        // SUCCESS - EXACT JSON STRUCTURE FOR YOUR LOADER
+        const formattedExpiry = foundKey.expiryDate.toISOString().replace('T', ' ').split('.')[0];
+        
         res.status(200).json({ 
             status: true, 
-            data: { 
-                mod: "WASIM VIP", 
-                status: "SAFE", 
-                expiry: foundKey.expiryDate.toISOString().replace('T', ' ').split('.')[0] 
-            } 
+            message: "LOGIN_SUCCESS",
+            expiry: formattedExpiry, // Loader isko dhoond raha hai
+            data: {
+                username: "WASIM_USER",
+                expiry: formattedExpiry,
+                status: "Premium"
+            }
         });
-    } catch (e) { res.status(200).json({ status: false, message: "SERVER_ERROR" }); }
+    } catch (e) { res.status(200).json({ status: false, message: "SERVER_ERROR", expiry: "N/A" }); }
 });
 
-
-// 2. ADMIN PANEL UI
+// 4. ADMIN PANEL UI
 app.get('/', (req, res) => {
     res.send(`
     <!DOCTYPE html>
@@ -102,8 +93,10 @@ app.get('/', (req, res) => {
                 <h2 style="color:var(--yellow)">GENERATE LICENSE</h2>
                 <input type="text" id="k" placeholder="Key Name">
                 <select id="d">
-                    <option value="2">2 Hours</option><option value="24">1 Day</option>
-                    <option value="168">7 Days</option><option value="720">30 Days</option>
+                    <option value="2">2 Hours</option>
+                    <option value="24">1 Day</option>
+                    <option value="168">7 Days</option>
+                    <option value="720">30 Days</option>
                 </select>
                 <button onclick="gen()">CREATE</button>
             </div>
@@ -119,7 +112,7 @@ app.get('/', (req, res) => {
                 if(document.getElementById('pw').value === 'wasim786') {
                     document.getElementById('auth').style.display='none';
                     load();
-                } else { alert("WRONG"); }
+                } else { alert("WRONG PASSWORD"); }
             }
             async function load() {
                 const r = await fetch('/admin/list');
@@ -145,14 +138,14 @@ app.get('/', (req, res) => {
                 load();
             }
             async function act(u, id) { await fetch(u, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) }); load(); }
-            async function del(id) { if(confirm("Delete?")) { await fetch('/admin/del/'+id, { method:'DELETE' }); load(); } }
+            async function del(id) { if(confirm("Delete Key?")) { await fetch('/admin/del/'+id, { method:'DELETE' }); load(); } }
         </script>
     </body>
     </html>
     `);
 });
 
-// Admin API
+// Admin Helpers
 app.get('/admin/list', async (req, res) => res.json(await Key.find().sort({createdAt: -1})));
 app.post('/admin/add', async (req, res) => {
     const { key, hours } = req.body;
@@ -169,4 +162,4 @@ app.post('/admin/reset', async (req, res) => { await Key.findByIdAndUpdate(req.b
 app.delete('/admin/del/:id', async (req, res) => { await Key.findByIdAndDelete(req.params.id); res.json({ success: true }); });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, '0.0.0.0', () => console.log("🚀 Server Ready"));
+app.listen(PORT, '0.0.0.0', () => console.log("🚀 Wasim Server Online"));
