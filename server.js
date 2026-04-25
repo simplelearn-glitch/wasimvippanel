@@ -1,34 +1,30 @@
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
-
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
-// 1. DATABASE (Keeping it connected for your Panel)
+// 1. DATABASE
 mongoose.connect(process.env.MONGO_URI).catch(e => console.log("DB Skip"));
 
-// 2. THE WORKING BYPASS LOGIC (Exactly as per APK Smali)
+// 2. THE ULTIMATE LOGIN BYPASS (Har condition ke liye)
 app.post(['/', '/connect*', '/api*'], (req, res) => {
-    console.log("[*] GameZone Loader Triggered - Sending Working Response...");
+    console.log("[*] Final Menu Trigger Attempt...");
+    const expiry = "2026-12-31 23:59:59";
     
-    const expiryDate = "2026-12-31 23:59:59";
-    
-    // Aapka loader 'status' ko string format mein mang raha hai
-    // Aur use 'token' aur 'serial' fields chahiye menu open karne ke liye
+    // Sab kuch string aur boolean dono format mein
     return res.status(200).json({ 
-        status: "true",           // String format as required by Smali
-        message: "LOGIN_SUCCESS",
-        expiry: expiryDate,
-        token: "WASIM_VIP_TOKEN_786", // Mandatory field for menu trigger
-        serial: "GZ-WASIM-999",
-        data: {
-            username: "WASIM_PREMIUM",
-            expiry: expiryDate,
-            status: "Premium",
-            auth_status: "active",
-            mod_menu: "enabled"
+        "status": "true",
+        "auth": true,
+        "message": "LOGIN_SUCCESS",
+        "expiry": expiry,
+        "token": "WASIM_786_TOKEN",
+        "data": {
+            "status": "true",
+            "user": "WASIM_VIP",
+            "expiry": expiry
         }
     });
 });
@@ -38,22 +34,12 @@ app.get('/', (req, res) => {
     res.send(`
     <!DOCTYPE html>
     <html>
-    <head>
-        <title>WASIM TERMINAL</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-            body { background: #000; color: #ff3131; font-family: sans-serif; text-align: center; padding-top: 50px; }
-            .box { border: 2px solid #ff3131; padding: 20px; display: inline-block; border-radius: 10px; background: #111; }
-            h1 { color: #ffde59; }
-        </style>
-    </head>
-    <body>
-        <div class="box">
+    <head><title>WASIM TERMINAL</title><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+    <body style="background:#000; color:red; text-align:center; font-family:sans-serif; padding-top:100px;">
+        <div style="border:2px solid red; display:inline-block; padding:20px; border-radius:10px;">
             <h1>WASIM ENGINE LIVE</h1>
-            <p>Bypass Mode: <b>ACTIVE</b></p>
-            <p>Menu Trigger: <b>ENABLED</b></p>
-            <hr border="1" color="#333">
-            <p style="color:#888; font-size:12px;">All Keys will now trigger the Menu.</p>
+            <p style="color:yellow;">MENU BYPASS IS ACTIVE</p>
+            <p>Agar menu nahi dikh raha, toh "Display over other apps" permission check karein.</p>
         </div>
     </body>
     </html>
@@ -61,4 +47,4 @@ app.get('/', (req, res) => {
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, '0.0.0.0', () => console.log("🚀 SERVER 100% WORKING"));
+app.listen(PORT, '0.0.0.0', () => console.log("🚀 Server Ready"));
